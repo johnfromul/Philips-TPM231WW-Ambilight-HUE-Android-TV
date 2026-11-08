@@ -6,6 +6,11 @@ Ambilight + Hue setup and control for compatible **Philips TPM231WW TVs running 
 
 ![Ambilight + Hue artwork](artwork/ambilight-hue-approved.png)
 
+## Authors
+
+- **johnfromul** — project author
+- **Toengel** — co-author · [Toengel’s Philips blog](https://toengel.net/philipsblog)
+
 ## Current development build: 1.13
 
 The latest published stable release remains 1.12. The 1.13 development build includes the multilingual PIN fix confirmed by the OLED808 tester, multi-Bridge selection, saved-status indicators, Advanced options and a confirmed local configuration reset. It is installed on the owner’s TV for evaluation; a 1.13 release has not yet been published.
