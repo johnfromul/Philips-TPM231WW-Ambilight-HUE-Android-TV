@@ -20,9 +20,10 @@ The owner installed 1.14x on a Philips 65OLED909/12 with Android 14, firmware `T
 
 ## Known issues
 
-> [!CAUTION]
-> 🔴 **Open bug on the owner's OLED909. With the app's Accessibility service enabled, opening the Philips channel list during live DVB-S2 viewing can make the highlight scroll through stations by itself. Disabling Accessibility for Ambilight + Hue stopped this in the owner's test. Restricting the service's event subscriptions did not stop it.**
+> **Warning about live TV channel scrolling**
+>
+> With the app's Accessibility helper enabled, the Philips channel list can scroll by itself during live DVB-S2 viewing on the tested OLED909. The channel list behaved normally with the helper off. Restricting the helper's event subscriptions did not resolve the behavior in the 1.14x test.
 
-Native Sync can run with the helper disabled after TV pairing. In Direct Sync, measured TV API colours also work with saved pairing. Air can run with the helper off if the TV is already transmitting Air colours. If Air is off, enable it in the Philips TV settings or use the helper's automatic start. Automatic start without Accessibility remains under investigation.
+Native Sync and the measured TV API colour source work with the helper off after TV API pairing. In 1.14x, enable Air in the Philips TV settings before starting Direct Sync if you have disabled the helper. Starting with the 1.14y test build, Direct Sync can enable Air with the helper off. The public [1.14z preview](https://github.com/johnfromul/Philips-TPM231WW-Ambilight-HUE-Android-TV/releases/tag/v1.14z) also uses QR-based TV pairing without Accessibility. If you use the optional remote-control assistance in the Philips Air wizard, disable the helper after setup.
 
 Alex reported occasional unexpected stops. Use the [USB logging procedure](DIAGNOSTICS.md#long-running-direct-sync-log-to-usb) to capture the time and reason. Low brightness in bright scenes remains under investigation. The TV can provide low colour values, and lights assigned to the top edge can dim when that area is dark.
