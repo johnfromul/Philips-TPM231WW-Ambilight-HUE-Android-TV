@@ -1,8 +1,8 @@
 # Philips TPM231WW Ambilight + Hue — Android TV / Google TV
 
-Ambilight + Hue setup and control for compatible **Philips TPM231WW TVs running Android TV / Google TV**, using the original Philips service included in the firmware. **Titan OS is not supported.** The platform name and model year alone do not establish compatibility.
+Ambilight + Hue setup and control for compatible **Philips TPM231WW TVs running Android TV / Google TV**, with native Philips integration and experimental Direct Sync. **Titan OS is not supported.** The platform name and model year alone do not establish compatibility.
 
-[Download version 1.12](https://github.com/johnfromul/Philips-TPM231WW-Ambilight-HUE-Android-TV/releases/tag/v1.12) · [Installation and pairing](docs/INSTALL.md) · [Technical notes](docs/TECHNICAL.md) · [Build from source](docs/BUILD.md)
+[Download version 1.12](https://github.com/johnfromul/Philips-TPM231WW-Ambilight-HUE-Android-TV/releases/tag/v1.12) · [Experimental 1.14x](https://github.com/johnfromul/Philips-TPM231WW-Ambilight-HUE-Android-TV/releases/tag/v1.14x) · [Installation and pairing](docs/INSTALL.md) · [Technical notes](docs/TECHNICAL.md) · [Build from source](docs/BUILD.md)
 
 ![Ambilight + Hue artwork](artwork/ambilight-hue-approved.png)
 
@@ -11,9 +11,14 @@ Ambilight + Hue setup and control for compatible **Philips TPM231WW TVs running 
 - **johnfromul** — project author
 - **Toengel** — co-author · [Toengel’s Philips blog](https://toengel.net/philipsblog)
 
-## Current development build: 1.13
+## Experimental 1.14x
 
-The latest published stable release remains 1.12. The 1.13 development build includes the multilingual PIN fix confirmed by the OLED808 tester, multi-Bridge selection, saved-status indicators, Advanced options and a confirmed local configuration reset. It is installed on the owner’s TV for evaluation; a 1.13 release has not yet been published.
+[Download the 1.14x prerelease](https://github.com/johnfromul/Philips-TPM231WW-Ambilight-HUE-Android-TV/releases/tag/v1.14x) · [Direct Sync setup and compatibility](docs/DIRECT-SYNC.md) · [Ambilight Air setup](docs/AIR-SETUP.md) · [USB diagnostics](docs/DIAGNOSTICS.md#long-running-direct-sync-log-to-usb)
+
+1.14x adds Direct Sync via Hue Entertainment with Ambilight Air or measured TV API colours. It adds colour transition smoothing, Bridge switching between sessions, and Polish translations. The main screen controls native sync. Direct Sync is in **Advanced options**. Version 1.12 remains the stable release.
+
+> [!CAUTION]
+> 🔴 **Open bug: with Ambilight + Hue Accessibility enabled, the Philips channel list can scroll by itself during live DVB-S2 viewing on the owner's OLED909.** See the [known issue and workaround](docs/DIRECT-SYNC.md#known-issues).
 
 ## What it does
 
@@ -27,7 +32,7 @@ The latest published stable release remains 1.12. The 1.13 development build inc
 
 **The TV's own Ambilight must be switched on.** On October 22, 2026, Hue synchronization appeared enabled but did not run while Ambilight was off. Turning Ambilight on restored operation. The USB LAN setup did not prevent operation in that test; the reason Ambilight had switched off could not be determined.
 
-## Tested setup
+## Tested native setup for 1.12
 
 | Component | Verified value |
 | --- | --- |
@@ -44,7 +49,7 @@ The OLED808 tester has additionally confirmed the rootless setup and synchroniza
 
 ## App controls
 
-The launcher follows the TV system language for Czech, English, German, French and Spanish. Other system languages fall back to English. The native Philips wizard opened by the launcher remains a separate TV component and uses its own language support.
+The launcher follows the TV system language for Czech, English, German, French, Spanish and Polish in 1.14x. Other system languages fall back to English. The native Philips wizard opened by the launcher remains a separate TV component and uses its own language support.
 
 | App label | Meaning |
 | --- | --- |

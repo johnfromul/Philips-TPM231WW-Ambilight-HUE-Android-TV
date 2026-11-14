@@ -15,16 +15,6 @@ For a new signing identity, create your own keystore interactively using `keytoo
 
 The output is `build/ambilight-hue-launcher.apk`. The script creates its output directories, compiles Java and resources, adds DEX, aligns, signs and verifies the APK. Passwords are supplied to apksigner through environment references rather than literal command arguments.
 
-The current release is `release/Ambilight-Hue-1.12.apk`, Android versionCode 13, minimum Android API 26. It is signed with the original local Hue identity so it updates earlier releases in place. No private signing material is distributed.
+The 1.14x sources include the shaded Bouncy Castle 1.85 libraries in `libs/` for Hue Entertainment. The licence is included in `assets/licenses/`. The manifest uses versionCode 62 and minimum Android API 26.
 
-Run the focused diagnostic, HTTP request, recovery and provisioning tests with:
-
-```sh
-python3 -m unittest discover -s tests -v
-```
-
-Your build will only update an installed app in place if it uses the same signing identity. The original private signing key is not published. Uninstalling to install a differently signed build removes launcher data and requires API provisioning again.
-
-The interface follows the TV language: Czech, English, German, French and Spanish, with English fallback.
-
-The development sources are now version 1.13, versionCode 14. The published stable release remains 1.12. The 1.13 TV test build preserves the same signing identity; reset logic has failure-injection tests, but a destructive reset has not been exercised on the owner’s restored live configuration.
+Run the tests with `python3 -m unittest discover -s tests -v`. To update an existing installation, use an APK signed with the same identity. Uninstalling a differently signed build removes its saved settings.

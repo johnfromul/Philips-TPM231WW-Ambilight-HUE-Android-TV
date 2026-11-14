@@ -1,4 +1,5 @@
 from pathlib import Path
+import re
 import shutil
 import subprocess
 import tempfile
@@ -17,10 +18,15 @@ class SetupLanguages(unittest.TestCase):
 public class LanguageHarness {
  public static void main(String[] args){
   android.content.Context c=new android.content.Context();
-  String[] languages={"cs","en","de","fr","es"};
+  String[] languages={"cs","en","de","fr","es","pl"};
   for(String language:languages){java.util.Locale.setDefault(java.util.Locale.forLanguageTag(language));
    for(String key:FeatureStrings.TEXT.keySet())if(FeatureStrings.get(c,key)==null||FeatureStrings.get(c,key).isEmpty())throw new AssertionError(language+key);
    for(String key:SetupStrings.TEXT.keySet())if(SetupStrings.get(c,key)==null||SetupStrings.get(c,key).isEmpty())throw new AssertionError(language+key);
+   for(String key:args){
+    String value=key.startsWith("tls:")?TlsStrings.get(c,key.substring(4)):
+     key.startsWith("direct:")?DirectText.get(c,key.substring(7)):Strings.get(c,key.substring(8),1,2,3);
+    if(value==null||value.isEmpty())throw new AssertionError(language+" "+key);
+   }
    if(SetupStrings.positions(c).length!=10)throw new AssertionError("native angle count");
   }
   java.util.Locale.setDefault(java.util.Locale.GERMAN);
@@ -36,7 +42,12 @@ public class LanguageHarness {
    d=Path(tmp)
    for name, text in sources.items():
     p=d/name;p.parent.mkdir(parents=True,exist_ok=True);p.write_text(text)
-   shutil.copy(ROOT/'src/local/tv/hue/SetupStrings.java', d/'local/tv/hue/SetupStrings.java')
-   shutil.copy(ROOT/'src/local/tv/hue/FeatureStrings.java', d/'local/tv/hue/FeatureStrings.java')
+   java_sources=ROOT/'src/local/tv/hue'
+   for name in ('SetupStrings','FeatureStrings','DirectText','TlsStrings','Strings'):
+    shutil.copy(java_sources/f'{name}.java', d/f'local/tv/hue/{name}.java')
+   keys=['tls:title','tls:trust','tls:message']
+   keys += ['direct:'+key for key in re.findall(r'case "([^"]+)":', (java_sources/'DirectText.java').read_text())]
+   english=(java_sources/'Strings.java').read_text().split('private static String en(String k)',1)[1].split('private static String pl(String k)',1)[0]
+   keys += ['strings:'+key for key in re.findall(r'case "([^"]+)":',english)]
    subprocess.run(['javac','-d',str(d/'classes'),*map(str,d.rglob('*.java'))],check=True,capture_output=True)
-   subprocess.run(['java','-cp',str(d/'classes'),'local.tv.hue.LanguageHarness'],check=True,capture_output=True)
+   subprocess.run(['java','-cp',str(d/'classes'),'local.tv.hue.LanguageHarness',*keys],check=True)

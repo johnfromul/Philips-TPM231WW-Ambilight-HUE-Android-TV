@@ -29,3 +29,14 @@ Export and health-check operations require Android DUMP permission, available to
 ## Limits
 
 The launcher cannot identify every writer of native TV settings or observe every internal Philips failure. Standard Android permissions do not let it continuously read another app's logs. A saved On switch or accepted service intent does not prove that lights received colors. Correlate launcher events with native transitions and user observations. If Philips does not log the original cause, this diagnostic version cannot reconstruct it with certainty.
+
+## Long-running Direct Sync log to USB
+
+Connect one writable USB flash drive to the TV and connect ADB. The script finds a single mounted public volume with `sm list-volumes public`. With several volumes, pass the exact `/storage/<volume-id>` path as an argument. The ADB shell needs write access to the drive.
+
+```sh
+adb push tools/usb-logcat.sh /data/local/tmp/ambilight-usb-logcat.sh
+adb shell -t sh /data/local/tmp/ambilight-usb-logcat.sh
+```
+
+The script writes to `ambilight+hue/` at the USB root and rotates at 8 MiB with up to eight older files per run. Keep the ADB session open and press Ctrl+C before unplugging the drive. If sync stops unexpectedly, note the TV time, Bridge, colour source and whether Direct Sync still showed **Running**. Share the files covering that time and, if available, `Download/Ambilight Hue/ambilight-hue-diagnostics.jsonl`. Review logs for personal data before posting. The USB filter omits the Philips native Hue tags, which can contain Bridge secrets.

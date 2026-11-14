@@ -14,7 +14,11 @@ final class Diagnostics {
  private static final String TAG="HueDiagnostics";
  private static final int LIMIT=65536;
  private static File directory;
- static synchronized void init(Context c) {directory=new File(c.getFilesDir(),"diagnostics");directory.mkdirs();}
+ private static DownloadsDiagnostics downloads;
+ static synchronized void init(Context c) {
+  directory=new File(c.getFilesDir(),"diagnostics");directory.mkdirs();
+  if(downloads==null)downloads=new DownloadsDiagnostics(c);
+ }
  static String id(){return UUID.randomUUID().toString().substring(0,8);}
  static synchronized void event(String id,String stage,String detail) {
   try {
@@ -31,6 +35,7 @@ final class Diagnostics {
     if(current.exists()&&!current.renameTo(previous))return;
    }
    try(FileOutputStream out=new FileOutputStream(current,true)){out.write((line+"\n").getBytes("UTF-8"));}
+   downloads.changed();
   }catch(Exception ignored){Log.w(TAG,"diagnostic_storage_failed");}
  }
  static void error(String id,String stage,Throwable error) {

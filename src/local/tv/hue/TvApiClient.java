@@ -3,6 +3,7 @@ package local.tv.hue;
 import android.content.Context;
 import android.content.SharedPreferences;
 import org.json.JSONObject;
+import org.json.JSONArray;
 import javax.net.ssl.*;
 import java.net.*;
 import java.io.*;
@@ -20,8 +21,10 @@ final class TvApiClient {
  private long started;
  private long deadline=Long.MAX_VALUE;
  private int readTimeout=9000;
+ void limitOperationTime(long timeoutMs){deadline=android.os.SystemClock.elapsedRealtime()+timeoutMs;}
  private int budget(int maximum) throws SocketTimeoutException {long left=deadline-android.os.SystemClock.elapsedRealtime();if(left<=0)throw new SocketTimeoutException("Power operation deadline");return (int)Math.min(maximum,left);}
- private void trace(String value){stage=value;Diagnostics.event(operation,value,"duration_ms="+(android.os.SystemClock.elapsedRealtime()-started));}
+ private boolean quiet;
+ private void trace(String value){stage=value;if(!quiet)Diagnostics.event(operation,value,"duration_ms="+(android.os.SystemClock.elapsedRealtime()-started));}
  TvApiClient(Context context) throws Exception {this(context,Diagnostics.id());}
  TvApiClient(Context context,String operation) throws Exception {
   this(context,operation,context.getSharedPreferences(PREFS,Context.MODE_PRIVATE));
@@ -66,8 +69,11 @@ final class TvApiClient {
   }finally {close();deadline=Long.MAX_VALUE;}
  }
  private String exchange(String method,String body)throws Exception {
+  return exchange(method,body,"/6/HueLamp/power");
+ }
+ private String exchange(String method,String body,String uri)throws Exception {
   close();challenge=null;readTimeout="GET".equals(method)?3000:9000;
-  try {connect();return request(method,body);}
+  try {connect();return request(method,body,uri);}
   catch(Exception e){Diagnostics.error(operation,stage+".error",e);throw e;}
   finally {close();}
  }
@@ -76,6 +82,42 @@ final class TvApiClient {
  String getPower() throws Exception {
   String power=safePower(new JSONObject(exchange("GET",null)).optString("power"));Diagnostics.event(operation,"power.observed","saved="+power);return power;
  }
+ JSONObject getAmbilightTopology()throws Exception{return new JSONObject(exchange("GET",null,"/6/ambilight/topology"));}
+ void openMeasuredStream()throws Exception{
+  close();challenge=null;readTimeout=3000;quiet=true;
+  try{connect();}catch(Exception e){quiet=false;throw e;}
+ }
+ JSONObject readMeasuredFrame()throws Exception{
+  if(session==null)throw new IOException("TV color stream is not connected");
+  return new JSONObject(request("GET",null,"/6/ambilight/measured"));
+ }
+ void closeMeasuredStream(){close();quiet=false;}
+ private static volatile AmbilightNodes ambilightNodes;
+ private static final class AmbilightNodes {
+  final long style,off;final Set<Long> enabled;
+  AmbilightNodes(long style,long off,Set<Long> enabled){this.style=style;this.off=off;this.enabled=enabled;}
+ }
+ private static JSONObject findAmbilightStyle(JSONObject obj){
+  if("ambilight_style".equals(obj.optString("context")))return obj;
+  JSONObject data=obj.optJSONObject("data");JSONArray nodes=data==null?null:data.optJSONArray("nodes");
+  if(nodes!=null)for(int i=0;i<nodes.length();i++){JSONObject child=nodes.optJSONObject(i);if(child!=null){JSONObject found=findAmbilightStyle(child);if(found!=null)return found;}}
+  return null;
+ }
+ private AmbilightNodes loadAmbilightNodes()throws Exception{
+  JSONObject root=new JSONObject(exchange("GET",null,"/6/menuitems/settings/structure")).optJSONObject("node");
+  JSONObject style=root==null?null:findAmbilightStyle(root);if(style==null)throw new IOException("Ambilight menu unavailable");
+  long styleId=style.optLong("node_id",-1),off=-1;Set<Long> enabled=new HashSet<>();JSONObject data=style.optJSONObject("data");JSONArray nodes=data==null?null:data.optJSONArray("nodes");
+  if(nodes!=null)for(int i=0;i<nodes.length();i++){JSONObject n=nodes.optJSONObject(i);if(n==null)continue;long id=n.optLong("node_id",-1);String context=n.optString("context");if(id<0)continue;if("ambilight_off".equals(context))off=id;else if("ambilight_follow_video".equals(context)||"ambilight_follow_audio".equals(context)||"ambilight_lounge_light".equals(context)||"ambilight_follow_flag".equals(context)||"ambilight_follow_app".equals(context))enabled.add(id);}
+  if(styleId<0||off<0||enabled.isEmpty())throw new IOException("Ambilight menu incomplete");return new AmbilightNodes(styleId,off,enabled);
+ }
+ String getAmbilightPower()throws Exception{
+  AmbilightNodes nodes=ambilightNodes;if(nodes==null){nodes=loadAmbilightNodes();ambilightNodes=nodes;}
+  JSONObject body=new JSONObject().put("nodes",new JSONArray().put(new JSONObject().put("nodeid",nodes.style)));
+  JSONObject reply=new JSONObject(exchange("POST",body.toString(),"/6/menuitems/settings/current"));JSONArray values=reply.optJSONArray("values");
+  JSONObject wrapper=values==null?null:values.optJSONObject(0);JSONObject value=wrapper==null?null:wrapper.optJSONObject("value");JSONObject data=value==null?null:value.optJSONObject("data");
+  if(value==null||value.optLong("Nodeid",-1)!=nodes.style||!value.optBoolean("Available",false)||data==null)return "unknown";
+  long active=data.optLong("activenode_id",-1);if(active==nodes.off)return "Off";if(nodes.enabled.contains(active))return "On";return "unknown";
+ }
  String pairingGrant(String body) throws Exception {
   deadline=android.os.SystemClock.elapsedRealtime()+15000;
   try {connect();return request("POST",body,"/6/pair/grant");}finally{close();}
@@ -83,6 +125,7 @@ final class TvApiClient {
  static TvApiClient pairingClient(Context context,SharedPreferences pending)throws Exception{return new TvApiClient(context,"pairing",pending);}
  private String request(String method,String body) throws Exception {return request(method,body,"/6/HueLamp/power");}
  private String request(String method,String body,String uri) throws Exception {
+  final int responseLimit="/6/menuitems/settings/structure".equals(uri)?1048576:65536;
   for(int attempt=0;attempt<3;attempt++) {
    trace(method+".attempt."+attempt+".write");
    byte[] bytes=body==null?new byte[0]:body.getBytes("UTF-8");
@@ -100,16 +143,16 @@ final class TvApiClient {
    int code=Integer.parseInt(parts[1]);Map<String,String> responseHeaders=new HashMap<>();int headerBytes=0;
    trace(method+".headers.read");
    for(String h=line(input);!h.isEmpty();h=line(input)){headerBytes+=h.length();if(headerBytes>32768)throw new IOException("Příliš velká hlavička TV API.");int colon=h.indexOf(':');if(colon>0)responseHeaders.put(h.substring(0,colon).toLowerCase(Locale.ROOT),h.substring(colon+1).trim());}
-   Diagnostics.event(operation,method+".response","http="+code+" has_length="+responseHeaders.containsKey("content-length")+" chunked="+"chunked".equalsIgnoreCase(responseHeaders.get("transfer-encoding"))+" closes="+"close".equalsIgnoreCase(responseHeaders.get("connection"))+" duration_ms="+(android.os.SystemClock.elapsedRealtime()-started));
+   if(!quiet)Diagnostics.event(operation,method+".response","http="+code+" has_length="+responseHeaders.containsKey("content-length")+" chunked="+"chunked".equalsIgnoreCase(responseHeaders.get("transfer-encoding"))+" closes="+"close".equalsIgnoreCase(responseHeaders.get("connection"))+" duration_ms="+(android.os.SystemClock.elapsedRealtime()-started));
    trace(method+".body.read");
    String response="";
    if("chunked".equalsIgnoreCase(responseHeaders.get("transfer-encoding"))){
     ByteArrayOutputStream data=new ByteArrayOutputStream();
-    for(;;){String size=line(input).split(";",2)[0];int n=Integer.parseInt(size.trim(),16);if(n<0||n>65536-data.size())throw new IOException("Příliš velká odpověď TV API.");if(n==0){while(!line(input).isEmpty()){}break;}for(int i=0;i<n;i++){int v=input.read();if(v<0)throw new EOFException();data.write(v);}if(!line(input).isEmpty())throw new IOException("Neplatná odpověď TV API.");}
+    for(;;){String size=line(input).split(";",2)[0];int n=Integer.parseInt(size.trim(),16);if(n<0||n>responseLimit-data.size())throw new IOException("Příliš velká odpověď TV API.");if(n==0){while(!line(input).isEmpty()){}break;}for(int i=0;i<n;i++){int v=input.read();if(v<0)throw new EOFException();data.write(v);}if(!line(input).isEmpty())throw new IOException("Neplatná odpověď TV API.");}
     response=data.toString("UTF-8");
    }else if(responseHeaders.containsKey("content-length")){
-    int n=Integer.parseInt(responseHeaders.get("content-length"));if(n<0||n>65536)throw new IOException("Příliš velká odpověď TV API.");byte[] data=new byte[n];for(int pos=0;pos<n;){int count=input.read(data,pos,n-pos);if(count<0)throw new EOFException();pos+=count;}response=new String(data,"UTF-8");
-   }else if(code==200&&"GET".equals(method))response=read(input);
+    int n=Integer.parseInt(responseHeaders.get("content-length"));if(n<0||n>responseLimit)throw new IOException("Příliš velká odpověď TV API.");byte[] data=new byte[n];for(int pos=0;pos<n;){int count=input.read(data,pos,n-pos);if(count<0)throw new EOFException();pos+=count;}response=new String(data,"UTF-8");
+   }else if(code==200&&"GET".equals(method))response=read(input,responseLimit);
    if(code==401){trace(method+".digest.challenge");challenge=responseHeaders.get("www-authenticate");if(challenge==null)throw new IOException("TV API odmítlo přihlášení.");if("close".equalsIgnoreCase(responseHeaders.get("connection"))){close();connect();}continue;}
    if(code!=200&&code!=204)throw new IOException("TV API odmítlo příkaz (HTTP "+code+").");
    return response;
@@ -121,11 +164,11 @@ final class TvApiClient {
   while((c=input.read())!=-1){if(c==10)return b.toString("ISO-8859-1").replace("\r","");b.write(c);if(b.size()>8192)throw new IOException("Neplatná hlavička TV API.");}
   throw new EOFException("TV uzavřela spojení před odpovědí.");
  }
- private static String read(InputStream stream) throws IOException {
+ private static String read(InputStream stream,int responseLimit) throws IOException {
   if(stream==null)return "";
   try(ByteArrayOutputStream out=new ByteArrayOutputStream()) {
    InputStream in=stream;
-   int n;while((n=in.read())!=-1){out.write(n);if(out.size()>65536)throw new IOException("Neočekávaná odpověď TV API.");if(n=='}'){String value=out.toString("UTF-8");try{return new JSONObject(value).toString();}catch(org.json.JSONException incomplete){}}}return out.toString("UTF-8");
+   int n;while((n=in.read())!=-1){out.write(n);if(out.size()>responseLimit)throw new IOException("Neočekávaná odpověď TV API.");if(n=='}'){String value=out.toString("UTF-8");try{return new JSONObject(value).toString();}catch(org.json.JSONException incomplete){}}}return out.toString("UTF-8");
   }
  }
  private String digest(String challenge,String method,String uri) throws Exception {

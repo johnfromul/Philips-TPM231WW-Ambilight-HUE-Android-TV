@@ -1,0 +1,7 @@
+import pathlib,subprocess,tempfile,unittest
+class TestCorrection(unittest.TestCase):
+ def test_exclusions_range_and_continuity(self):
+  root=pathlib.Path(__file__).resolve().parents[1]
+  source='''package local.tv.hue; public class Check { public static void main(String[] x){int[][] a={{65535,0,32768},{65535,65535,0},{0,65535,32768},{0,0,0},{30000,49000,60000}};int[][] b=DirectColorCorrection.apply(a);for(int i=0;i<4;i++)for(int c=0;c<3;c++)if(Math.abs(a[i][c]-b[i][c])>1)throw new AssertionError();for(int[] p:b)for(int v:p)if(v<0||v>65535)throw new AssertionError();if(java.util.Arrays.equals(a[4],b[4]))throw new AssertionError();int[] z=DirectColorCorrection.apply(new int[][]{{65535,0,32769}})[0];for(int c=0;c<3;c++)if(Math.abs(z[c]-b[0][c])>5)throw new AssertionError();int[][] off=DirectColorCorrection.apply(a,0);for(int i=0;i<a.length;i++)if(!java.util.Arrays.equals(a[i],off[i]))throw new AssertionError();int[][] strong=DirectColorCorrection.apply(a,.75);if(java.util.Arrays.equals(strong[4],b[4]))throw new AssertionError();for(int i=0;i<4;i++)if(!java.util.Arrays.equals(strong[i],a[i]))throw new AssertionError();try{DirectColorCorrection.apply(a,Double.NaN);throw new AssertionError();}catch(IllegalArgumentException expected){}}}'''
+  with tempfile.TemporaryDirectory() as t:
+   p=pathlib.Path(t)/'Check.java';p.write_text(source);subprocess.run(['javac','-d',t,str(root/'src/local/tv/hue/DirectColorCorrection.java'),str(p)],check=True);subprocess.run(['java','-cp',t,'local.tv.hue.Check'],check=True)

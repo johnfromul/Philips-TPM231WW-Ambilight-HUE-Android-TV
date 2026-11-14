@@ -14,7 +14,7 @@ public class TvApiConfigProvider extends ContentProvider {
   if("diagnostic-check".equals(method)){
    Diagnostics.init(getContext());String id=Diagnostics.id();Diagnostics.network(getContext(),id);
    Bundle result=new Bundle();result.putString("id",id);
-   try{result.putString("saved_power",new TvApiClient(getContext(),id).getPower());}
+   try{result.putString("saved_power",new TvApiClient(getContext(),id).getPower());try{result.putString("ambilight_power",new TvApiClient(getContext(),id).getAmbilightPower());}catch(Exception e){result.putString("ambilight_power","unknown");Diagnostics.error(id,"ambilight.read.failed",e);}}
    catch(Exception e){Diagnostics.error(id,"diagnostic-check.error",e);result.putString("error_type",e.getClass().getName());}
    return result;
   }

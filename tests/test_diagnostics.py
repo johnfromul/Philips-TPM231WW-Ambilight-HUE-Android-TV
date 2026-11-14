@@ -26,6 +26,7 @@ class LoggerTests(unittest.TestCase):
  def test_exception_redaction_rotation_and_reopen(self):
   # Run the actual logger on the JVM with minimal Android/JSON adapters.
   stubs={
+   "local/tv/hue/DownloadsDiagnostics.java":'package local.tv.hue; final class DownloadsDiagnostics { DownloadsDiagnostics(android.content.Context c){} void changed(){} }',
    "android/content/Context.java":'package android.content; public class Context {public static final String CONNECTIVITY_SERVICE="connectivity";public java.io.File getFilesDir(){return new java.io.File(System.getProperty("test.dir"));}public Object getSystemService(String s){return null;}}',
    "android/net/ConnectivityManager.java":'package android.net; public class ConnectivityManager {public Object getActiveNetwork(){return null;}public NetworkCapabilities getNetworkCapabilities(Object n){return null;}}',
    "android/net/NetworkCapabilities.java":'package android.net; public class NetworkCapabilities {public static final int TRANSPORT_ETHERNET=3,TRANSPORT_WIFI=1,TRANSPORT_VPN=4,NET_CAPABILITY_VALIDATED=16;public boolean hasTransport(int v){return false;}public boolean hasCapability(int v){return false;}}',

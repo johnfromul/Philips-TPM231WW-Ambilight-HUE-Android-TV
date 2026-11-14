@@ -15,7 +15,8 @@ class HttpPacketTests(unittest.TestCase):
    "android/content/SharedPreferences.java":'package android.content;public class SharedPreferences {public String getString(String k,String d){if(k.equals("certificate"))return "a".repeat(64);return "dummy";}}',
    "android/os/SystemClock.java":'package android.os;public class SystemClock {public static long elapsedRealtime(){return System.nanoTime()/1000000;}}',
    "org/json/JSONException.java":'package org.json;public class JSONException extends Exception {}',
-   "org/json/JSONObject.java":'package org.json;public class JSONObject {public JSONObject(){}public JSONObject(String s)throws JSONException {}public JSONObject put(String k,Object v){return this;}public String optString(String k){return "On";}public String toString(){return "{}";}}',
+   "org/json/JSONObject.java":'package org.json;public class JSONObject {public JSONObject(){}public JSONObject(String s)throws JSONException {}public JSONObject put(String k,Object v){return this;}public String optString(String k){return "On";}public JSONObject optJSONObject(String k){return null;}public JSONArray optJSONArray(String k){return null;}public long optLong(String k,long d){return d;}public boolean optBoolean(String k,boolean d){return d;}public String toString(){return "{}";}}',
+   "org/json/JSONArray.java":'package org.json;public class JSONArray {public JSONArray put(Object o){return this;}public int length(){return 0;}public JSONObject optJSONObject(int i){return null;}}',
    "local/tv/hue/Diagnostics.java":'package local.tv.hue;class Diagnostics {static String id(){return "test";}static void init(android.content.Context c){}static void event(String a,String b,String c){}static void error(String a,String b,Throwable c){}}',
    "local/tv/hue/PacketHarness.java":r'''package local.tv.hue;
 import javax.net.ssl.*;import java.io.*;import java.lang.reflect.*;import java.util.*;

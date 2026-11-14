@@ -19,12 +19,13 @@ final class AppPairing {
  static String text(Context c,int key){
   String l=c.getResources().getConfiguration().locale.getLanguage();
   String[][] words={
-   {"App pairing","Requesting TV PIN…","Enter the PIN displayed by the TV, then confirm before it expires.","Confirm","App paired successfully.","Pairing failed. Try again. Diagnostics: ","Verifying pairing…"},
-   {"Spárovat aplikaci","Žádám TV o PIN…","Zadejte PIN z obrazovky TV a potvrďte před vypršením platnosti.","Potvrdit","Aplikace byla úspěšně spárována.","Párování selhalo. Zkuste to znovu. Diagnostika: ","Ověřuji párování…"},
-   {"App koppeln","TV-PIN wird angefordert…","Geben Sie die PIN vom TV ein und bestätigen Sie vor Ablauf.","Bestätigen","App erfolgreich gekoppelt.","Kopplung fehlgeschlagen. Erneut versuchen. Diagnose: ","Kopplung wird geprüft…"},
-   {"Associer l’application","Demande du PIN au téléviseur…","Saisissez le PIN affiché sur le téléviseur et confirmez avant son expiration.","Confirmer","Application associée.","Échec de l’association. Réessayez. Diagnostic : ","Vérification de l’association…"},
-   {"Vincular aplicación","Solicitando PIN al televisor…","Introduzca el PIN del televisor y confirme antes de que caduque.","Confirmar","Aplicación vinculada correctamente.","Error de vinculación. Inténtelo de nuevo. Diagnóstico: ","Verificando vinculación…"}};
-  int i="cs".equals(l)?1:"de".equals(l)?2:"fr".equals(l)?3:"es".equals(l)?4:0;return words[i][key];
+   {"Grant Accessibility permission","Requesting TV PIN…","Enter the PIN displayed by the TV, then confirm before it expires.","Confirm","App paired successfully.","Pairing failed. Try again. Diagnostics: ","Verifying pairing…"},
+   {"Udělit oprávnění zpřístupnění","Žádám TV o PIN…","Zadejte PIN z obrazovky TV a potvrďte před vypršením platnosti.","Potvrdit","Aplikace byla úspěšně spárována.","Párování selhalo. Zkuste to znovu. Diagnostika: ","Ověřuji párování…"},
+   {"Android Bedienungshilfen-Berechtigung erteilen","TV-PIN wird angefordert …","Geben Sie die PIN vom TV ein und bestätigen Sie vor Ablauf.","Bestätigen","App erfolgreich gekoppelt.","Kopplung fehlgeschlagen. Erneut versuchen. Diagnose: ","Kopplung wird geprüft…"},
+   {"Accorder l’autorisation Accessibilité","Demande du PIN au téléviseur…","Saisissez le PIN affiché sur le téléviseur et confirmez avant son expiration.","Confirmer","Application associée.","Échec de l’association. Réessayez. Diagnostic : ","Vérification de l’association…"},
+   {"Conceder permiso de Accesibilidad","Solicitando PIN al televisor…","Introduzca el PIN del televisor y confirme antes de que caduque.","Confirmar","Aplicación vinculada correctamente.","Error de vinculación. Inténtelo de nuevo. Diagnóstico: ","Verificando vinculación…"},
+   {"Przyznaj uprawnienie ułatwień dostępu","Żądanie kodu PIN telewizora…","Wpisz kod PIN wyświetlony na telewizorze i potwierdź przed upływem jego ważności.","Potwierdź","Aplikacja sparowana pomyślnie.","Parowanie nie powiodło się. Spróbuj ponownie. Diagnostyka: ","Sprawdzanie parowania…"}};
+  int i="cs".equals(l)?1:"de".equals(l)?2:"fr".equals(l)?3:"es".equals(l)?4:"pl".equals(l)?5:0;return words[i][key];
  }
  interface Result {void done(String message);}
  static boolean prepare(Activity a,Result result){

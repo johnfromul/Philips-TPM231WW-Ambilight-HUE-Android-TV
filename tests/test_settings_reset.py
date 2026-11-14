@@ -15,6 +15,9 @@ public class Editor {boolean clear;java.util.Map<String,String> put=new java.uti
    'org/json/JSONObject.java': '''package org.json; public class JSONObject {public static JSONObject snapshot;public java.util.Map<String,Object> fields=new java.util.HashMap<>();public JSONObject put(String k,Object v){fields.put(k,v);return this;}public String toString(){if(fields.containsKey("native"))snapshot=this;return "PRIVATE_SNAPSHOT";}}''',
    'org/json/JSONArray.java': '''package org.json;public class JSONArray {int count;public JSONArray(int n){count=n;}public int length(){return count;}}''',
    'local/tv/hue/UiStatus.java': '''package local.tv.hue;import android.content.*;final class UiStatus {static boolean paired(Context c){return !c.getSharedPreferences("api",0).getString("user","").isEmpty();}}''',
+   'local/tv/hue/RootSyncService.java': '''package local.tv.hue;final class RootSyncService {static String state(){return "off";}}''',
+   'local/tv/hue/RootSessionGate.java': '''package local.tv.hue;final class RootSessionGate {static boolean busy(){return false;}}''',
+   'local/tv/hue/RootRecovery.java': '''package local.tv.hue;import android.content.*;final class RootRecovery {static boolean pending(Context c){return c.getSharedPreferences("root_sync_private",0).contains("recovery");}}''',
    'local/tv/hue/TvApiClient.java': '''package local.tv.hue;import android.content.*;final class TvApiClient {static final String PREFS="api";static String power="On";TvApiClient(Context c){if(!UiStatus.paired(c))throw new IllegalStateException("No auth");}String getPower(){return power;}void setPower(boolean on,Runnable notify){power=on?"On":"Off";notify.run();}}''',
    'local/tv/hue/NativeLink.java': '''package local.tv.hue;import android.content.*;import org.json.*;final class NativeLink implements AutoCloseable {
 static int bridges,lamps,groups;static String user,key,ip;static boolean failGroup;
@@ -35,6 +38,7 @@ public class ResetHarness {
  c=prepared();c.getSharedPreferences("api",0).failClear=true;try{SettingsReset.run(c);throw new AssertionError();}catch(Exception expected){}check(c.getSharedPreferences("native_setup_recovery",0).contains("snapshot"));check(JSONObject.snapshot.fields.containsKey("reset_tv_api"));
  c=new Context();c.getSharedPreferences("native_setup_recovery",0).values.put("snapshot","pending");NativeLink.bridges=0;NativeLink.lamps=0;try{SettingsReset.run(c);throw new AssertionError();}catch(Exception expected){}check(c.getSharedPreferences("native_setup_recovery",0).contains("snapshot"));
  c=new Context();NativeLink.bridges=0;NativeLink.lamps=0;NativeLink.groups=0;SettingsReset.run(c);check(c.getSharedPreferences("api",0).values.isEmpty());
+ c=prepared();c.getSharedPreferences("root_sync_private",0).values.put("recovery","pending");try{SettingsReset.run(c);throw new AssertionError();}catch(Exception expected){}check(NativeLink.bridges==1);check(c.getSharedPreferences("root_sync_private",0).contains("recovery"));
  }
 }'''
   }

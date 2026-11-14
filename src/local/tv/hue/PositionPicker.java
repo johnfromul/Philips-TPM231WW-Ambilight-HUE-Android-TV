@@ -12,8 +12,7 @@ final class PositionPicker {
   TextView hint=new TextView(activity);hint.setText(SetupStrings.get(activity,"position_hint"));hint.setTextColor(Color.LTGRAY);hint.setTextSize(17);panel.addView(hint);
   TextView label=new TextView(activity);label.setTextSize(23);label.setTextColor(Color.WHITE);label.setGravity(Gravity.CENTER);
   ZoneView zones=new ZoneView(activity,angle,label);panel.addView(zones,new LinearLayout.LayoutParams(-1,(int)(activity.getResources().getDisplayMetrics().heightPixels*.50)));panel.addView(label);
-  LinearLayout buttons=new LinearLayout(activity);buttons.setGravity(Gravity.CENTER);Button confirm=new Button(activity);confirm.setText(Strings.get(activity,"save"));confirm.setAllCaps(false);buttons.addView(confirm);Button cancel=new Button(activity);cancel.setText(Strings.get(activity,"cancel"));cancel.setAllCaps(false);buttons.addView(cancel);panel.addView(buttons);
-  Runnable save=()->{selected.accept(zones.current+1);dialog.dismiss();};zones.confirm=save;confirm.setOnClickListener(v->save.run());cancel.setOnClickListener(v->dialog.dismiss());dialog.setContentView(panel);dialog.show();dialog.getWindow().setLayout((int)(activity.getResources().getDisplayMetrics().widthPixels*.85),-2);zones.requestFocus();
+  Runnable save=()->{selected.accept(zones.current+1);dialog.dismiss();};zones.confirm=save;dialog.setContentView(panel);dialog.show();dialog.getWindow().setLayout((int)(activity.getResources().getDisplayMetrics().widthPixels*.85),-2);zones.requestFocus();
  }
  static final class ZoneView extends View {
   int current;final Paint paint=new Paint(3);final TextView label;final String[] names;Runnable confirm;

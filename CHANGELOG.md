@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.14x (experimental)
+
+See [release notes](docs/RELEASE-1.14x.md) and [Direct Sync setup](docs/DIRECT-SYNC.md).
+
 ## 1.13 — development, 2026-11-06
 
 - Fixed PIN parsing for translated sentences with extra words after the app name; confirmed by the OLED808 tester.
