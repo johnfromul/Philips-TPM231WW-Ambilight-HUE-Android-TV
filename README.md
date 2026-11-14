@@ -17,6 +17,10 @@ Ambilight + Hue setup and control for compatible **Philips TPM231WW TVs running 
 
 The 1.14z preview adds local Air pairing without a proxy, QR-based TV pairing, settings backup and a manual update check. Version 1.12 remains the stable release. The stable setup instructions below apply to version 1.12.
 
+> **Warning about live TV channel scrolling**
+>
+> With the app's Accessibility helper enabled, the Philips channel list can scroll by itself during live DVB-S2 viewing on the tested OLED909. The 1.14y test build can enable Air for Direct Sync with the helper off. The public 1.14z preview also pairs with the TV using a QR code without Accessibility. The channel list behaved normally with the helper off. If you enable the optional remote-control assistance in the Philips Air wizard, turn it off after setup.
+
 ## What it does
 
 - Turns synchronization on and off from a TV remote friendly launcher.

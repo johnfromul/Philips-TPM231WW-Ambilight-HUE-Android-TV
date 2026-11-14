@@ -11,4 +11,8 @@ The 1.14z preview was tested on the owner's 65OLED909/12, Android 14, firmware `
 
 ## Known issues
 
-On the owner's OLED909, enabling the app's Accessibility helper in older builds such as 1.14x could make the Philips live DVB-S2 channel list scroll by itself. Disabling the helper stopped the scrolling. This warning applies when the helper is enabled, including if it is manually enabled for optional Philips wizard remote-control assistance. QR pairing, Air setup and regular synchronization in 1.14z can be used with the helper disabled.
+> **Warning about live TV channel scrolling**
+>
+> With the app's Accessibility helper enabled, the Philips channel list can scroll by itself during live DVB-S2 viewing on the tested OLED909. The 1.14y test build can enable Air for Direct Sync with the helper off. The public 1.14z preview also pairs with the TV using a QR code without Accessibility. The channel list behaved normally with the helper off. If you enable the optional remote-control assistance in the Philips Air wizard, turn it off after setup.
+
+The 1.14z preview supports Air setup and normal synchronization with the helper off.
