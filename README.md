@@ -2,7 +2,7 @@
 
 Ambilight + Hue setup and control for compatible **Philips TPM231WW TVs running Android TV / Google TV**, with native Philips integration and experimental Direct Sync. **Titan OS is not supported.** The platform name and model year alone do not establish compatibility.
 
-[Download version 1.12](https://github.com/johnfromul/Philips-TPM231WW-Ambilight-HUE-Android-TV/releases/tag/v1.12) · [Experimental 1.14x](https://github.com/johnfromul/Philips-TPM231WW-Ambilight-HUE-Android-TV/releases/tag/v1.14x) · [Installation and pairing](docs/INSTALL.md) · [Technical notes](docs/TECHNICAL.md) · [Build from source](docs/BUILD.md)
+[Download version 1.12](https://github.com/johnfromul/Philips-TPM231WW-Ambilight-HUE-Android-TV/releases/tag/v1.12) · [Development preview 1.14z](https://github.com/johnfromul/Philips-TPM231WW-Ambilight-HUE-Android-TV/releases/tag/v1.14z) · [Installation and pairing](docs/INSTALL.md) · [Technical notes](docs/TECHNICAL.md) · [Build from source](docs/BUILD.md)
 
 ![Ambilight + Hue artwork](artwork/ambilight-hue-approved.png)
 
@@ -11,14 +11,11 @@ Ambilight + Hue setup and control for compatible **Philips TPM231WW TVs running 
 - **johnfromul** — project author
 - **Toengel** — co-author · [Toengel’s Philips blog](https://toengel.net/philipsblog)
 
-## Experimental 1.14x
+## Development preview 1.14z
 
-[Download the 1.14x prerelease](https://github.com/johnfromul/Philips-TPM231WW-Ambilight-HUE-Android-TV/releases/tag/v1.14x) · [Direct Sync setup and compatibility](docs/DIRECT-SYNC.md) · [Ambilight Air setup](docs/AIR-SETUP.md) · [USB diagnostics](docs/DIAGNOSTICS.md#long-running-direct-sync-log-to-usb)
+[Download the 1.14z prerelease](https://github.com/johnfromul/Philips-TPM231WW-Ambilight-HUE-Android-TV/releases/tag/v1.14z) · [Changes in 1.14z](https://github.com/johnfromul/Philips-TPM231WW-Ambilight-HUE-Android-TV/blob/v1.14z/docs/RELEASE-1.14z.md) · [Air setup](https://github.com/johnfromul/Philips-TPM231WW-Ambilight-HUE-Android-TV/blob/v1.14z/docs/AIR-SETUP.md)
 
-1.14x adds Direct Sync via Hue Entertainment with Ambilight Air or measured TV API colours. It adds colour transition smoothing, Bridge switching between sessions, and Polish translations. The main screen controls native sync. Direct Sync is in **Advanced options**. Version 1.12 remains the stable release.
-
-> [!CAUTION]
-> 🔴 **Open bug: with Ambilight + Hue Accessibility enabled, the Philips channel list can scroll by itself during live DVB-S2 viewing on the owner's OLED909.** See the [known issue and workaround](docs/DIRECT-SYNC.md#known-issues).
+The 1.14z preview adds local Ambilight Air pairing without a proxy, QR-based TV pairing, settings backup and a manual update check. Version 1.12 remains the stable release. The stable setup instructions below apply to version 1.12.
 
 ## What it does
 
