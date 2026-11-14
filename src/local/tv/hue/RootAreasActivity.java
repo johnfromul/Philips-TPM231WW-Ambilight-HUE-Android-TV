@@ -4,6 +4,7 @@ import android.app.Activity;
 import android.content.SharedPreferences;
 import android.graphics.Color;
 import android.os.Bundle;
+import android.os.ResultReceiver;
 import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.EditText;
@@ -15,8 +16,6 @@ import android.widget.CheckBox;
 import android.widget.SeekBar;
 import android.net.nsd.NsdManager;
 import android.net.nsd.NsdServiceInfo;
-import android.net.ConnectivityManager;
-import android.net.ProxyInfo;
 import android.view.Gravity;
 import java.util.ArrayList;
 import java.util.List;
@@ -56,6 +55,8 @@ public final class RootAreasActivity extends Activity {
  private Button lightsEntry;
  private int focusedAction=2;
  private Button[] actions;
+ private AirWizardActivation airActivation;
+ private boolean acceptAirActivation;
  private final List<CheckBox> lightChoices=new ArrayList<>();
  private final List<Integer> positions=new ArrayList<>();
  private final List<Spinner> brightness=new ArrayList<>();
@@ -197,8 +198,8 @@ public final class RootAreasActivity extends Activity {
   Button save=new Button(this);save.setText(DirectText.get(this,"save"));lightsPanel.addView(save);
   Button lightsBack=new Button(this);lightsBack.setText(Strings.get(this,"back"));lightsPanel.addView(lightsBack);lightsBack.setOnClickListener(v->showLights(false));
   stop=new Button(this);stop.setText(DirectText.get(this,"stop"));layout.addView(stop);
+  status=new TextView(this);status.setTextColor(Color.WHITE);layout.addView(status,new LinearLayout.LayoutParams(-1,-2));
   TextView stopHint=new TextView(this);stopHint.setText(DirectText.get(this,"stop_hint"));stopHint.setTextColor(Color.LTGRAY);stopHint.setGravity(Gravity.CENTER_HORIZONTAL);layout.addView(stopHint);
-  status=new TextView(this);status.setTextColor(Color.WHITE);layout.addView(status);
   Button back=new Button(this);back.setText(Strings.get(this,"back"));layout.addView(back);
   for(Button button:new Button[]{load,loadLights,openLights,start,save,stop,back,lightsBack}){button.setAllCaps(false);button.setFocusableInTouchMode(true);MenuStyle.apply(button);}
   airSettings.setFocusableInTouchMode(true);
@@ -211,7 +212,7 @@ public final class RootAreasActivity extends Activity {
   load.setOnClickListener(v->loadAreas());
   start.setOnClickListener(v->startSession());
   save.setOnClickListener(v->{if(saveSelection()){smoothingNotice.setVisibility(android.view.View.INVISIBLE);showLights(false);status.setText(DirectText.get(this,"saved"));}});
-  stop.setOnClickListener(v->{String s=RootSyncService.state();if(!"starting".equals(s)&&!"running".equals(s)){status.setText(DirectText.get(this,"direct_stopped"));return;}startService(new android.content.Intent(this,RootSyncService.class).setAction(RootSyncService.STOP));status.setText(DirectText.get(this,"stopping"));});
+  stop.setOnClickListener(v->{String s=RootSyncService.state();if(!"starting".equals(s)&&!"running".equals(s)){status.setText(DirectText.get(this,"direct_stopped"));return;}acceptAirActivation=false;startService(new android.content.Intent(this,RootSyncService.class).setAction(RootSyncService.STOP));status.setText(DirectText.get(this,"stopping"));});
   back.setOnClickListener(v->onBackPressed());
   bridgePicker.setOnItemSelectedListener(new android.widget.AdapterView.OnItemSelectedListener(){
    public void onNothingSelected(android.widget.AdapterView<?> p){}
@@ -239,19 +240,16 @@ public final class RootAreasActivity extends Activity {
   openLights.setText(UiColors.marks((lights?"✓ ":"")+DirectText.get(this,"lights_settings")));
   start.setText(UiColors.marks((running?"✓ ":"")+DirectText.get(this,"start")));
   bridgeStatus.setText(DirectText.get(this,"bridge_ip")+": "+DirectBridgeProfiles.current(this).getString("host",""));
-  boolean proxy=false;try{ProxyInfo p=((ConnectivityManager)getSystemService(CONNECTIVITY_SERVICE)).getDefaultProxy();proxy=p!=null&&"127.0.0.1".equals(p.getHost())&&p.getPort()==18180;}catch(Exception ignored){}
   boolean receiver=AirSetupActivity.isRunning();
-  int airSwitch=PairingAccessibility.airSwitchState();
-  SharedPreferences airStatePrefs=getSharedPreferences("air_setup_state",0);
-  if(airSwitch<0&&System.currentTimeMillis()-airStatePrefs.getLong("observed_at",0)<10*60*1000L)airSwitch=airStatePrefs.getInt("observed_switch",-1);
-  String airState=airSwitch==1?"✓ "+DirectText.get(this,"enabled"):airSwitch==0?"✕ "+DirectText.get(this,"air_disabled"):configured?DirectText.get(this,"air_unknown"):"✕ "+DirectText.get(this,"disabled");
-  setupStatus.setText(UiColors.marks(DirectText.get(this,"temporary_proxy")+": "+(proxy?"✓ "+DirectText.get(this,"running_short"):DirectText.get(this,"inactive")+" ("+DirectText.get(this,"normal_state")+")")+"\n"+DirectText.get(this,"receiver_status")+": "+(receiver?DirectText.get(this,"receiver_running"):DirectText.get(this,"receiver_stopped"))+"\n"+DirectText.get(this,"air_status")+": "+airState+"\n"+DirectText.get(this,"direct_status")+": "+(running?"✓ "+DirectText.get(this,"direct_running"):"✕ "+DirectText.get(this,"direct_stopped"))));
+  boolean receivingAir=running&&RootSyncService.usingAir();
+  String airState=receivingAir?"✓ "+DirectText.get(this,"air_receiving"):configured?"✓ "+DirectText.get(this,"air_paired"):"✕ "+DirectText.get(this,"disabled");
+  setupStatus.setText(UiColors.marks(DirectText.get(this,"receiver_status")+": "+(receiver?DirectText.get(this,"receiver_running"):DirectText.get(this,"receiver_stopped"))+"\n"+DirectText.get(this,"air_status")+": "+airState+"\n"+DirectText.get(this,"direct_status")+": "+(running?"✓ "+DirectText.get(this,"direct_running"):"✕ "+DirectText.get(this,"direct_stopped"))));
  }
  private void showLights(boolean show){
   if(show){mainPanel.removeView(status);lightsPanel.addView(status);screen.removeView(mainPanel);screen.addView(lightsPanel);lightsPanel.post(()->{if(load!=null)load.requestFocus();});}
   else {lightsPanel.removeView(status);mainPanel.addView(status);screen.removeView(lightsPanel);screen.addView(mainPanel);Button target=lightsEntry;mainPanel.post(()->{if(target!=null)target.requestFocus();else restoreMainFocus();});}
  }
- @Override public void onBackPressed(){if(lightsPanel.getParent()==screen)showLights(false);else super.onBackPressed();}
+ @Override public void onBackPressed(){acceptAirActivation=false;if(lightsPanel.getParent()==screen)showLights(false);else super.onBackPressed();}
  private boolean directBusy(){String s=RootSyncService.state();return "starting".equals(s)||"running".equals(s)||RootSessionGate.busy()||RootRecovery.pending(this);}
  private void refreshBridgePicker(){bridgePicker.setEnabled(!switchingBridge&&!directBusy());}
  private void restoreBridgeSelection(){
@@ -282,9 +280,18 @@ public final class RootAreasActivity extends Activity {
    });
   });
  }
- @Override protected void onResume(){super.onResume();PairingAccessibility.monitorAirSwitch();stateHandler.removeCallbacks(stateRefresh);stateHandler.post(stateRefresh);restoreMainFocus();}
+ @Override protected void onResume(){super.onResume();stateHandler.removeCallbacks(stateRefresh);stateHandler.post(stateRefresh);restoreMainFocus();}
+ @Override public void onWindowFocusChanged(boolean focused){
+  super.onWindowFocusChanged(focused);
+  if(focused&&airActivation!=null)airActivation.onWindowFocus();
+ }
  @Override protected void onSaveInstanceState(Bundle state){super.onSaveInstanceState(state);state.putInt("focused_action",focusedAction);}
- @Override protected void onPause(){stateHandler.removeCallbacks(stateRefresh);super.onPause();}
+ @Override protected void onPause(){
+  if(airActivation!=null)airActivation.onPause();
+  else acceptAirActivation=false;
+  stateHandler.removeCallbacks(stateRefresh);
+  super.onPause();
+ }
  private void discoverBridge(){
   if(discovery!=null||active)return;
   NsdManager manager=(NsdManager)getSystemService(NSD_SERVICE);
@@ -464,6 +471,15 @@ public final class RootAreasActivity extends Activity {
   try{new RootSyncPreferences(this,bridge).saveConfiguration(lamps,area);if(!getSharedPreferences("direct_tuning",0).edit().putInt("smoothing_centiseconds",smoothing.getProgress()+DirectSmoothing.MIN).commit())throw new java.io.IOException("Smoothing setting was not saved");}catch(Exception e){Diagnostics.error("direct","direct.configuration.save.error",e);status.setText(DirectText.get(this,"save_failed"));return false;}
   return true;
  }
+ private void showMissingDirectConfiguration(){
+  new android.app.AlertDialog.Builder(this)
+      .setMessage(DirectText.get(this,"direct_config_required"))
+      .setNegativeButton(Strings.get(this,"back"),null)
+      .setPositiveButton(DirectText.get(this,"lights_settings"),(dialog,which)->{
+       lightsEntry=start;
+       showLights(true);
+      }).show();
+ }
  private void startSession(){
   if(RootRecovery.pending(this)){startActivity(new android.content.Intent(this,RootRecoveryActivity.class));return;}
   if(directBusy()){status.setText(DirectText.get(this,"busy"));return;}
@@ -473,19 +489,25 @@ public final class RootAreasActivity extends Activity {
   try{
    RootSyncPreferences saved=new RootSyncPreferences(this,bridge);
    String area=saved.loadArea();
-   if(saved.loadConfiguration(area).isEmpty()){status.setText(DirectText.get(this,"lights"));return;}
+   if(saved.loadConfiguration(area).isEmpty()){showMissingDirectConfiguration();return;}
    Diagnostics.event("direct","direct.start.saved_configuration","bridge="+bridge+" area="+area);
-  }catch(Exception e){Diagnostics.error("direct","direct.start.configuration.error",e);status.setText(DirectText.get(this,"area"));return;}
-  if(getSharedPreferences("direct_tuning",0).getBoolean("use_air",true)){
-   if(PairingAccessibility.enableAir(this)){
-    Diagnostics.event("direct","air.switch.auto_enable.requested","source=accessibility");
-   }else{
-    Diagnostics.event("direct","air.switch.manual","source=tv_settings");
+  }catch(Exception e){Diagnostics.error("direct","direct.start.configuration.error",e);showMissingDirectConfiguration();return;}
+  android.content.Intent startRequest=new android.content.Intent(this,RootSyncService.class).setAction(RootSyncService.START);
+  acceptAirActivation=getSharedPreferences("direct_tuning",0).getBoolean("use_air",true)
+      &&getSharedPreferences("air_setup_state",0).getBoolean("configured",false);
+  if(acceptAirActivation)startRequest.putExtra(RootSyncService.AIR_ACTIVATION,new ResultReceiver(stateHandler){
+   @Override protected void onReceiveResult(int code,Bundle data){
+    ResultReceiver reply=data.getParcelable(AirWizardActivation.REPLY);
+    if(acceptAirActivation&&airActivation==null&&"starting".equals(RootSyncService.state())){
+     airActivation=AirWizardActivation.start(RootAreasActivity.this,()->airActivation=null);
+    }
+    acceptAirActivation=false;
+    if(reply!=null)reply.send(airActivation!=null?1:0,null);
    }
-  }
-  startForegroundService(new android.content.Intent(this,RootSyncService.class).setAction(RootSyncService.START));
+  });
+  startForegroundService(startRequest);
   bridgePicker.setEnabled(false);
   status.setText(DirectText.get(this,"starting"));
  }
- @Override protected void onDestroy(){stateHandler.removeCallbacks(stateRefresh);stopDiscovery();worker.shutdown();super.onDestroy();}
+ @Override protected void onDestroy(){acceptAirActivation=false;if(airActivation!=null)airActivation.close();stateHandler.removeCallbacks(stateRefresh);stopDiscovery();worker.shutdown();super.onDestroy();}
 }

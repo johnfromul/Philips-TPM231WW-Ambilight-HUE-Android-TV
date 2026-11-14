@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.14z (development preview)
+
+See the [1.14z release notes](docs/RELEASE-1.14z.md) for local Air pairing, QR TV pairing, backup and the update checker.
+
+
 ## 1.14x (experimental)
 
 See [release notes](docs/RELEASE-1.14x.md) and [Direct Sync setup](docs/DIRECT-SYNC.md).

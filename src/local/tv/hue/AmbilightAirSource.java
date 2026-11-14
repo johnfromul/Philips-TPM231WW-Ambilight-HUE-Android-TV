@@ -11,12 +11,15 @@ import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
+import java.util.function.BooleanSupplier;
 
-/** Receives Philips ExtPixels from the local TV. The system Air switch stays user controlled. */
+/** Receives Philips ExtPixels from the local TV before the Hue stream is opened. */
 final class AmbilightAirSource implements RootSyncCore.Source {
  static final String MARKER="ambilight_air_v1";
  static final class Unavailable extends IOException {}
  private final Context context;
+ private final BooleanSupplier activateAir;
+ private final BooleanSupplier cancelled;
  private final CountDownLatch firstFrame=new CountDownLatch(1);
  private final String diagnosticId=Diagnostics.id();
  private MulticastSocket socket;
@@ -31,7 +34,12 @@ final class AmbilightAirSource implements RootSyncCore.Source {
   final long time=SystemClock.elapsedRealtime();
   Frame(int[][] zones){this.zones=zones;}
  }
- AmbilightAirSource(Context context){this.context=context.getApplicationContext();}
+ AmbilightAirSource(Context context){this(context,()->false,()->false);}
+ AmbilightAirSource(Context context,BooleanSupplier activateAir,BooleanSupplier cancelled){
+  this.context=context.getApplicationContext();
+  this.activateAir=activateAir;
+  this.cancelled=cancelled;
+ }
  public String capture(){return MARKER;}
  public void start(List<RootSyncCore.Lamp> selection)throws Exception{
   lamps=selection;
@@ -57,8 +65,42 @@ final class AmbilightAirSource implements RootSyncCore.Source {
   Thread reader=new Thread(()->receive(receiver,local),"ambilight-air-receiver");
   reader.setDaemon(true);
   reader.start();
-  if(!firstFrame.await(3,TimeUnit.SECONDS))throw new Unavailable();
+  boolean ready=awaitFrame(750);
+  if(ready){
+   try{awaitContinuousFrames(650);}catch(Unavailable gap){ready=false;}
+  }
+  if(!ready){
+   boolean repairing=activateAir.getAsBoolean();
+   if(!awaitFrame(repairing?6000:2250))throw new Unavailable();
+   awaitContinuousFrames(repairing?6000:2250);
+  }
   read();
+  Diagnostics.event(diagnosticId,"direct.air.first_frame","zones=10");
+ }
+ private boolean awaitFrame(long timeoutMs)throws InterruptedException,Unavailable{
+  long deadline=SystemClock.elapsedRealtime()+timeoutMs;
+  while(true){
+   if(cancelled.getAsBoolean())throw new InterruptedException("Direct start cancelled");
+   long remaining=deadline-SystemClock.elapsedRealtime();
+   if(remaining<=0)return false;
+   if(firstFrame.await(Math.min(remaining,200),TimeUnit.MILLISECONDS)){
+    if(receiveError!=null||latest==null)throw new Unavailable();
+    if(cancelled.getAsBoolean())throw new InterruptedException("Direct start cancelled");
+    return true;
+   }
+  }
+ }
+ private void awaitContinuousFrames(long timeout) throws InterruptedException,Unavailable{
+  Frame first=latest;
+  long deadline=SystemClock.elapsedRealtime()+timeout;
+  while(SystemClock.elapsedRealtime()<deadline){
+   if(cancelled.getAsBoolean())throw new InterruptedException("Direct start cancelled");
+   Frame current=latest;
+   if(receiveError!=null)break;
+   if(current!=null&&current.time-first.time>=350&&SystemClock.elapsedRealtime()-current.time<250)return;
+   Thread.sleep(40);
+  }
+  throw new Unavailable();
  }
  private void receive(MulticastSocket receiver,Set<InetAddress> local){
   byte[] data=new byte[512];
@@ -72,7 +114,10 @@ final class AmbilightAirSource implements RootSyncCore.Source {
     if(!local.contains(packet.getAddress()))continue;
     int[][] zones=AirFrame.decode(data,packet.getLength());
     if(zones==null)continue;
-    if(!configurationRecorded){context.getSharedPreferences("air_setup_state",0).edit().putBoolean("configured",true).apply();configurationRecorded=true;}
+    if(!configurationRecorded){
+     context.getSharedPreferences("air_setup_state",0).edit().putBoolean("configured",true).apply();
+     configurationRecorded=true;
+    }
     latest=new Frame(zones);
     firstFrame.countDown();
     frames++;

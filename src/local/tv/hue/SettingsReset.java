@@ -19,5 +19,5 @@ final class SettingsReset {
    clearPrivate(c);
   }
  }
- private static void clearPrivate(Context c)throws Exception{for(String name:new String[]{"hue_bridge","bridge_profiles","direct_bridge","direct_tuning","root_sync_private","root_entertainment_recovery","light_drafts","tv_pair_flow","tv_pair_pending","bridge_tls",TvApiClient.PREFS,"native_setup_recovery"})if(!c.getSharedPreferences(name,0).edit().clear().commit())throw new IOException("Private settings reset incomplete");}
+ private static void clearPrivate(Context c)throws Exception{for(String name:new String[]{"app_language","air_setup_state","hue_bridge","bridge_profiles","direct_bridge","direct_tuning","root_sync_private","root_entertainment_recovery","light_drafts","tv_pair_flow","tv_pair_pending","bridge_tls",TvApiClient.PREFS,"native_setup_recovery"})if(!c.getSharedPreferences(name,0).edit().clear().commit())throw new IOException("Private settings reset incomplete");}
 }

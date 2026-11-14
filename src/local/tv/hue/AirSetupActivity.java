@@ -3,8 +3,6 @@ package local.tv.hue;
 import android.app.Activity;
 import android.content.Context;
 import android.content.Intent;
-import android.net.nsd.NsdManager;
-import android.net.nsd.NsdServiceInfo;
 import android.os.Bundle;
 import android.os.Handler;
 import android.widget.TextView;
@@ -14,12 +12,9 @@ import android.graphics.Color;
 import java.io.*;
 import java.net.*;
 import java.nio.charset.StandardCharsets;
-import java.util.Collections;
-import java.util.HashSet;
-import java.util.Set;
 import org.json.JSONObject;
 
-/** Temporary Air receiver. Proxy settings are controlled outside this activity. */
+/** Temporary local receiver for the Philips Air wizard. */
 public final class AirSetupActivity extends Activity {
     private static volatile AirSetupActivity current;
     static void stopCurrent(){
@@ -31,38 +26,18 @@ public final class AirSetupActivity extends Activity {
 
     @Override protected void attachBaseContext(Context base){super.attachBaseContext(AppLanguage.wrap(base));}
     private final String diagnosticId=Diagnostics.id();
-    private TextView status;
+    private TextView status,remoteHint;
     private Button wizard,remotePermission;
     private boolean wizardLaunched;
     private final Handler handler = new Handler(android.os.Looper.getMainLooper());
     private volatile ServerSocket server;
     private volatile boolean stopped;
-    private NsdManager nsd;
-    private boolean requested;
     private int configured;
-    private final Set<String> tvAddresses = new HashSet<>();
     private boolean streaming;
+    private String sessionKey;
     private String angle = "TopRight";
     private int brightness = 5;
-    private static final int PORT = 18180;
-
-    private final NsdManager.RegistrationListener registration = new NsdManager.RegistrationListener() {
-        @Override public void onRegistrationFailed(NsdServiceInfo info, int error) {
-            handler.post(()->{
-                if(!stopped)fail("mdns",new IOException("Registration code "+error));
-            });
-        }
-        @Override public void onUnregistrationFailed(NsdServiceInfo info, int error) {}
-        @Override public void onServiceUnregistered(NsdServiceInfo info) {}
-        @Override public void onServiceRegistered(NsdServiceInfo info) {
-            handler.post(()->{
-                if(stopped)return;
-                wizard.setEnabled(true);
-                status.setText(DirectText.get(AirSetupActivity.this,"air_setup_ready"));
-                Diagnostics.event(diagnosticId,"air.setup.ready","port="+PORT);
-            });
-        }
-    };
+    private static final int PORT = AirLocalDiscovery.PORT;
 
     @Override public void onCreate(Bundle state) {
         super.onCreate(state);
@@ -81,16 +56,25 @@ public final class AirSetupActivity extends Activity {
         status=new TextView(this);
         status.setTextColor(Color.WHITE);status.setText(DirectText.get(this,"air_setup_starting"));
         layout.addView(status);
-        Button network=addButton(layout,"air_network",android.provider.Settings.ACTION_WIFI_SETTINGS);
         wizard=addButton(layout,"air_settings","android.settings.AMBILIGHT_AIR");
         wizard.setEnabled(hasSavedAirSetup());
         remotePermission=addButton(layout,"air_remote_permission",android.provider.Settings.ACTION_ACCESSIBILITY_SETTINGS);
+        remoteHint=new TextView(this);
+        remoteHint.setText(DirectText.get(this,"air_remote_hint"));
+        remoteHint.setTextColor(Color.LTGRAY);
+        remoteHint.setTextSize(12);
+        remoteHint.setGravity(android.view.Gravity.CENTER);
         Button stop=new Button(this);
         stop.setText(DirectText.get(this,"air_setup_stop"));
-        MenuStyle.apply(stop);layout.addView(stop);
+        MenuStyle.apply(stop);
         int buttonWidth=(int)(getResources().getDisplayMetrics().widthPixels*.65f);
         int gap=(int)(5*getResources().getDisplayMetrics().density);
-        for(Button button:new Button[]{network,wizard,remotePermission,stop}){
+        LinearLayout.LayoutParams hintParams=new LinearLayout.LayoutParams(buttonWidth,-2);
+        hintParams.gravity=android.view.Gravity.CENTER_HORIZONTAL;
+        hintParams.bottomMargin=gap;
+        layout.addView(remoteHint,hintParams);
+        layout.addView(stop);
+        for(Button button:new Button[]{wizard,remotePermission,stop}){
             LinearLayout.LayoutParams params=new LinearLayout.LayoutParams(buttonWidth,-2);
             params.gravity=android.view.Gravity.CENTER_HORIZONTAL;params.setMargins(0,gap,0,gap);
             button.setLayoutParams(params);
@@ -124,7 +108,11 @@ public final class AirSetupActivity extends Activity {
     @Override protected void onResume(){
         super.onResume();
         if(wizardLaunched)endRemoteAssist();
-        if(remotePermission!=null)remotePermission.setVisibility(PairingAccessibility.ready()?android.view.View.GONE:android.view.View.VISIBLE);
+        if(remotePermission!=null){
+            int visibility=PairingAccessibility.ready()?android.view.View.GONE:android.view.View.VISIBLE;
+            remotePermission.setVisibility(visibility);
+            remoteHint.setVisibility(visibility);
+        }
     }
 
     private void endRemoteAssist(){
@@ -149,30 +137,24 @@ public final class AirSetupActivity extends Activity {
             server = listener;
             if(stopped)return;
             listener.bind(new InetSocketAddress("127.0.0.1", PORT));
-            for (NetworkInterface network : Collections.list(NetworkInterface.getNetworkInterfaces()))
-                if(network.isUp())
-                    for (InetAddress address : Collections.list(network.getInetAddresses()))
-                        if (address instanceof Inet4Address && !address.isLoopbackAddress())
-                            tvAddresses.add(address.getHostAddress());
-            if (tvAddresses.isEmpty()) throw new IOException("No local IPv4 address");
-            handler.post(() -> {
-                if (stopped) return;
-                nsd = (NsdManager) getSystemService(Context.NSD_SERVICE);
-                NsdServiceInfo info = new NsdServiceInfo();
-                info.setServiceName("tpv_Ambilight-Air-TV");
-                info.setServiceType("_tpv_al._tcp.");
-                info.setPort(PORT);
-                try{
-                    nsd.registerService(info,NsdManager.PROTOCOL_DNS_SD,registration);
-                    requested=true;
-                }catch(RuntimeException error){fail("mdns",error);}
-            });
+            new Thread(() -> {
+                try {
+                    AirLocalDiscovery.advertise(this, true, () -> stopped, () -> handler.post(() -> {
+                        if (stopped) return;
+                        wizard.setEnabled(true);
+                        status.setText(DirectText.get(this,"air_setup_ready"));
+                        Diagnostics.event(diagnosticId,"air.setup.ready","local port="+PORT);
+                    }));
+                } catch (IOException | InterruptedException error) {
+                    handler.post(() -> { if (!stopped) fail("mdns",error); });
+                }
+            }, "air-local-discovery").start();
             while (!stopped) {
                 try (Socket connection = listener.accept()) {
                     connection.setSoTimeout(1500);
                     respond(connection);
                 } catch (Exception error) {
-                    if (!stopped && !(error instanceof EOFException)) Diagnostics.error(diagnosticId,"air.setup.request.error",error);
+                    if (!stopped && !(error instanceof EOFException)) Diagnostics.event(diagnosticId,"air.setup.request.error",error.getClass().getSimpleName());
                 }
             }
         } catch (IOException error) {
@@ -187,19 +169,11 @@ public final class AirSetupActivity extends Activity {
         int count = 0;
         while (!line(in).isEmpty()) if (++count > 64) return;
         String target = request[1];
-        // Forward-proxy requests must target the TV itself on the firmware's fixed port.
-        if (!target.startsWith("http://")) {
+        if (!target.startsWith(AirLocalDiscovery.PATH_PREFIX + "/1/ambiair/")) {
             reply(socket,404,"application/json","{}");
             return;
         }
-        URI absolute=URI.create(target.replace("{","%7B").replace("}","%7D").replace("\"","%22"));
-        int port=absolute.getPort();
-        if(!tvAddresses.contains(absolute.getHost())||(port!=80&&port!=-1)||absolute.getRawUserInfo()!=null){
-            reply(socket,404,"application/json","{}");
-            return;
-        }
-        target=absolute.getRawPath();
-        String path = URLDecoder.decode(target, "UTF-8");
+        String path = URLDecoder.decode(target.substring(AirLocalDiscovery.PATH_PREFIX.length()), "UTF-8");
         int separator = path.indexOf("/post_value=");
         String route = separator < 0 ? path : path.substring(0, separator);
         String base = "/1/ambiair/multicast/";
@@ -211,7 +185,17 @@ public final class AirSetupActivity extends Activity {
                 .put("configured", configured).put("status", new JSONObject().put("angle", angle).put("brightness", brightness));
         } else if ("POST".equals(request[0])) {
             JSONObject value = separator < 0 ? new JSONObject() : new JSONObject(path.substring(separator + 12));
-            if ((base + "configured").equals(route)) {configured = value.optInt("configured");getSharedPreferences("air_setup_state",0).edit().putBoolean("configured",configured==1).apply();}
+            if ((base + "key").equals(route)) {
+                String key = value.optString("key");
+                if (!key.matches("[0-9A-Fa-f]{16}") || (sessionKey != null && !sessionKey.equals(key))) {
+                    reply(socket,200,"application/json","{\"error\":\"invalid pairing key\"}");
+                    return;
+                }
+                sessionKey = key;
+            } else if (!"/1/ambiair/light/state".equals(route) && !value.optString("key").equals(sessionKey)) {
+                reply(socket,200,"application/json","{\"error\":\"invalid pairing key\"}");
+                return;
+            } else if ((base + "configured").equals(route)) {configured = value.optInt("configured");getSharedPreferences("air_setup_state",0).edit().putBoolean("configured",configured==1).apply();}
             else if ((base + "stream").equals(route)) streaming = value.optBoolean("status");
             else if ((base + "config").equals(route)) {
                 JSONObject settings = value.getJSONObject("status");
@@ -257,7 +241,6 @@ public final class AirSetupActivity extends Activity {
         stopped=true;
         endRemoteAssist();
         handler.removeCallbacksAndMessages(null);
-        if(requested)try{nsd.unregisterService(registration);}catch(RuntimeException ignored){}
         if(server!=null)try{server.close();}catch(IOException ignored){}
         if(current==this)current=null;
         Diagnostics.event(diagnosticId,"air.setup.stopped","listener=closed");

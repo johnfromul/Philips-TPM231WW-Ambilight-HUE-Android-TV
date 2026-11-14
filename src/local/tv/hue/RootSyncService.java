@@ -7,19 +7,26 @@ import android.app.PendingIntent;
 import android.app.Service;
 import android.content.Intent;
 import android.content.SharedPreferences;
+import android.os.Bundle;
 import android.os.IBinder;
+import android.os.ResultReceiver;
 import java.util.List;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 /** Owns a single synchronization session independently of the setup screen. */
 public final class RootSyncService extends Service {
  static final String START="local.tv.hue.root.START", STOP="local.tv.hue.root.STOP";
+ static final String AIR_ACTIVATION="local.tv.hue.root.AIR_ACTIVATION";
  private static volatile String state="off";
+ private static volatile boolean usingAir;
  private static volatile String failureKey="sync_failed";
  private final AtomicBoolean stopRequested=new AtomicBoolean();
  private Thread worker;
 
  static String state(){return state;}
+ static boolean usingAir(){return usingAir;}
  static String failureKey(){return failureKey;}
  @Override public IBinder onBind(Intent intent){return null;}
  @Override public int onStartCommand(Intent intent,int flags,int id){
@@ -41,7 +48,8 @@ public final class RootSyncService extends Service {
    .setContentTitle("Ambilight + Hue").setContentText(DirectText.get(localized,"option")).setContentIntent(pending).setOngoing(true).build();
   startForeground(4201,notification);
   stopRequested.set(false);failureKey="sync_failed";state="starting";
-  worker=new Thread(()->runSession(id),"root-sync");
+  ResultReceiver activation=intent.getParcelableExtra(AIR_ACTIVATION);
+  worker=new Thread(()->runSession(activation),"root-sync");
   worker.start();
   return START_NOT_STICKY;
  }
@@ -87,12 +95,35 @@ public final class RootSyncService extends Service {
   }
  }
 
- private void runSession(int id){
+ private boolean activateAir(ResultReceiver activation,String diagnosticId){
+  if(activation==null||stopRequested.get())return false;
+  CountDownLatch reply=new CountDownLatch(1);
+  AtomicBoolean accepted=new AtomicBoolean();
+  Bundle data=new Bundle();
+  data.putParcelable(AirWizardActivation.REPLY,new ResultReceiver(null){
+   @Override protected void onReceiveResult(int code,Bundle ignored){
+    accepted.set(code==1);
+    reply.countDown();
+   }
+  });
+  activation.send(0,data);
+  try{
+   boolean started=reply.await(800,TimeUnit.MILLISECONDS)&&accepted.get();
+   Diagnostics.event(diagnosticId,"air.activation.requested","wizard_started="+started);
+   return started;
+  }catch(InterruptedException e){
+   Thread.currentThread().interrupt();
+   return false;
+  }
+ }
+
+ private void runSession(ResultReceiver activation){
   RootSyncEngine engine=null;
   Thread monitorThread=null;
   String diagnosticId=Diagnostics.id();String stopReason="requested";
   String stage="recovery_check";
   try{
+   if(SettingsBackup.hasInterruptedRestore(this))throw new IllegalStateException("Restore rollback required");
    if(AirSetupActivity.isRunning()){stage="air_setup";throw new IllegalStateException("Finish Ambilight Air setup first");}
    if(RootRecovery.pending(this))throw new IllegalStateException("Recovery required");
    DirectBridgeProfiles.migrate(this);SharedPreferences prefs=DirectBridgeProfiles.current(this);
@@ -115,7 +146,8 @@ public final class RootSyncService extends Service {
    for(RootSyncCore.Lamp lamp:lamps)lightIds.add(lamp.id);
    Diagnostics.event(diagnosticId,"direct.area.selected","area="+area+" name="+areaName+" light_ids="+lightIds);
    boolean air=getSharedPreferences("direct_tuning",0).getBoolean("use_air",true);
-   RootSyncCore.Source source=air?new AmbilightAirSource(this):new DirectTvApiSource(this);
+   usingAir=air;
+   RootSyncCore.Source source=air?new AmbilightAirSource(this,()->activateAir(activation,diagnosticId),stopRequested::get):new DirectTvApiSource(this);
    Diagnostics.event(diagnosticId,"direct.source.selected","source="+(air?"ambilight_air":"tv_api_measured"));
    engine=new RootSyncEngine(this,host,key,client,bridge,area,lamps,mapping,source);
    if(!stopRequested.get()){
@@ -145,6 +177,11 @@ public final class RootSyncService extends Service {
      next+=40000000L;long delay=next-System.nanoTime();if(delay>0)java.util.concurrent.TimeUnit.NANOSECONDS.sleep(delay);else next=System.nanoTime();
     }
    }
+  }catch(InterruptedException e){
+   if(!stopRequested.get()){
+    Diagnostics.error(diagnosticId,"direct.interrupted",e);
+    state="error";stopReason="interrupted";
+   }
   }catch(Exception e){
    stopReason="error_at_"+stage;
    android.util.Log.w("RootSync","Failed at "+stage+" ("+e.getClass().getSimpleName()+")");
@@ -168,6 +205,7 @@ public final class RootSyncService extends Service {
    }
    if(RootRecovery.pending(this)){state="recovery";failureKey="recovery";}
    else if(!"error".equals(state))state="off";
+   usingAir=false;
    Diagnostics.event(diagnosticId,"direct.session.ended","reason="+stopReason+" state="+state+" recovery_pending="+RootRecovery.pending(this));
    android.util.Log.i("DirectSyncTest","final_state="+state+" recovery_pending="+RootRecovery.pending(this));
    new android.os.Handler(getMainLooper()).post(()->{worker=null;stopSelf();});

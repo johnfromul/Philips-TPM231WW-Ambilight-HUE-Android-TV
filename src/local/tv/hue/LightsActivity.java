@@ -46,6 +46,8 @@ public class LightsActivity extends Activity {
  private BridgeTransport bridgeTransport;
  private String host,token,bridgeMac,clientKey;
  private boolean showingLights;
+ private Runnable afterTvPairing;
+ private static final int TV_PAIRING=141;
  private int connectionFocus;
  private static final long BRIDGE_WAIT_MS=120000;
  private int countdownGeneration;
@@ -90,6 +92,11 @@ public class LightsActivity extends Activity {
   persistDraft();stopDiscovery();showingLights=false;
   base(SetupStrings.get(this,"setup"));
   text(SetupStrings.get(this,"help"),18);
+  if(SettingsBackup.hasInterruptedRestore(this)){
+   status.setText(SetupStrings.get(this,"backup_rollback"));
+   button(Strings.get(this,"back"),this::finish);
+   return;
+  }
   if(getSharedPreferences("native_setup_recovery",0).contains("snapshot")){
    status.setText(SetupStrings.get(this,"recovery"));button(SetupStrings.get(this,"recover"),this::recover);button(Strings.get(this,"back"),this::finish);return;
   }
@@ -108,11 +115,24 @@ public class LightsActivity extends Activity {
   hostInput.setImeOptions(android.view.inputmethod.EditorInfo.IME_ACTION_DONE);
   hostInput.setOnEditorActionListener((v,action,event)->{if(action==android.view.inputmethod.EditorInfo.IME_ACTION_DONE||(event!=null&&event.getKeyCode()==android.view.KeyEvent.KEYCODE_ENTER)){android.view.inputmethod.InputMethodManager keyboard=(android.view.inputmethod.InputMethodManager)getSystemService(INPUT_METHOD_SERVICE);if(keyboard!=null)keyboard.hideSoftInputFromWindow(v.getWindowToken(),0);v.clearFocus();findBridge.requestFocus();return true;}return false;});
   bridgePairButton=button(SetupStrings.get(this,"pair"),() -> load(true));
-  appPairButton=button(AppPairing.text(this,0),this::pairApp);
+  appPairButton=button(SetupStrings.get(this,"tv_qr_pair"),this::pairApp);
   button(Strings.get(this,"load"),() -> load(false));
   button(Strings.get(this,"back"),this::back);
   status.setText(Strings.get(this,"network_required"));
   refreshPairStatus();restoreConnectionFocus();
+ }
+ @Override protected void onActivityResult(int request,int result,android.content.Intent data){
+  super.onActivityResult(request,result,data);
+  if(request!=TV_PAIRING)return;
+  busy=false;
+  for(Button control:controls)control.setEnabled(true);
+  if(hostInput!=null)hostInput.setEnabled(true);
+  Runnable continuation=afterTvPairing;
+  afterTvPairing=null;
+  String message=data==null?null:data.getStringExtra("message");
+  status.setText(SetupStrings.get(this,message==null?"tv_qr_cancelled":message));
+  refreshPairStatus();
+  if(result==RESULT_OK&&continuation!=null)continuation.run();
  }
  private void restoreConnectionFocus(){if(showingLights)return;panel.post(()->{if(!showingLights&&!busy&&connectionFocus>=0&&connectionFocus<controls.size())controls.get(connectionFocus).requestFocus();});}
  @Override protected void onSaveInstanceState(Bundle state){super.onSaveInstanceState(state);state.putInt("connection_focus",connectionFocus);}
@@ -123,15 +143,32 @@ public class LightsActivity extends Activity {
   String mac=normalize(discoveredIds.get(index));if(mac.length()!=12)return false;
   try{JSONObject saved=new JSONObject(getSharedPreferences("bridge_profiles",0).getString(mac,"{}"));return !saved.optString("token").isEmpty()&&!saved.optString("clientkey").isEmpty();}catch(JSONException e){return false;}
  }
- private void refreshPairStatus(){if(showingLights||pairSummary==null||bridgePairButton==null||appPairButton==null)return;boolean bridge=hostInput!=null&&storedBridgeForHost(hostInput.getText().toString().trim()),app=UiStatus.paired(this);bridgePairButton.setText(UiColors.marks((bridge?"✓ ":"✕ ")+SetupStrings.get(this,"pair")));appPairButton.setText(UiColors.marks((PairingAccessibility.ready()?"✓ ":"✕ ")+AppPairing.text(this,0)));pairSummary.setText(UiColors.summary(this,FeatureStrings.get(this,"bridge")+": "+(hostInput==null?"":hostInput.getText().toString())+"\n"+SetupStrings.get(this,"pair")+": "+(bridge?"✓ "+FeatureStrings.get(this,"stored"):"✕ "+FeatureStrings.get(this,"not_ready"))+"\n"+FeatureStrings.get(this,"permission")+": "+(PairingAccessibility.ready()?"✓ "+FeatureStrings.get(this,"ready"):"✕ "+FeatureStrings.get(this,"not_ready"))+"\n"+FeatureStrings.get(this,"tv_pairing")+": "+(app?"✓ "+FeatureStrings.get(this,"stored"):"✕ "+FeatureStrings.get(this,"not_ready"))));}
+ private void refreshPairStatus(){
+  if(showingLights||pairSummary==null||bridgePairButton==null||appPairButton==null)return;
+  boolean bridge=hostInput!=null&&storedBridgeForHost(hostInput.getText().toString().trim());
+  boolean app=UiStatus.paired(this);
+  bridgePairButton.setText(UiColors.marks((bridge?"✓ ":"✕ ")+SetupStrings.get(this,"pair")));
+  appPairButton.setText(UiColors.marks((app?"✓ ":"✕ ")+SetupStrings.get(this,"tv_qr_pair")));
+  pairSummary.setText(UiColors.summary(this,FeatureStrings.get(this,"bridge")+": "+(hostInput==null?"":hostInput.getText().toString())
+      +"\n"+SetupStrings.get(this,"pair")+": "+(bridge?"✓ "+FeatureStrings.get(this,"stored"):"✕ "+FeatureStrings.get(this,"not_ready"))
+      +"\n"+FeatureStrings.get(this,"tv_pairing")+": "+(app?"✓ "+FeatureStrings.get(this,"stored"):"✕ "+FeatureStrings.get(this,"not_ready"))));
+ }
  private void pairApp(){
-  if(busy)return;stopDiscovery();getSharedPreferences("tv_pair_flow",0).edit().putBoolean("requested",true).apply();
-  if(PairingAccessibility.ready()){
-   String l=getResources().getConfiguration().locale.getLanguage();String message="cs".equals(l)?"Oprávnění už je uděleno. Otevřít nastavení zpřístupnění?":"de".equals(l)?"Die Berechtigung ist bereits erteilt. Bedienungshilfen öffnen?":"fr".equals(l)?"L’autorisation est déjà accordée. Ouvrir les paramètres d’accessibilité ?":"es".equals(l)?"El permiso ya está concedido. ¿Abrir los ajustes de accesibilidad?":"pl".equals(l)?"Uprawnienie zostało już przyznane. Otworzyć ustawienia ułatwień dostępu?":"Accessibility permission is already granted. Open Accessibility settings?";
-   String yes="cs".equals(l)?"Ano":"de".equals(l)?"Ja":"fr".equals(l)?"Oui":"es".equals(l)?"Sí":"pl".equals(l)?"Tak":"Yes";String no="cs".equals(l)?"Ne":"de".equals(l)?"Nein":"fr".equals(l)?"Non":"es".equals(l)?"No":"pl".equals(l)?"Nie":"No";
-   AlertDialog dialog=new AlertDialog.Builder(this).setMessage(message).setPositiveButton(yes,(d,w)->{try{startActivity(new android.content.Intent(android.provider.Settings.ACTION_ACCESSIBILITY_SETTINGS));}catch(RuntimeException e){Diagnostics.error("accessibility","settings.open.failed",e);}}).setNegativeButton(no,null).create();dialog.setOnShowListener(d->dialog.getButton(AlertDialog.BUTTON_NEGATIVE).requestFocus());dialog.show();return;
-  }
-  if(AppPairing.prepare(this,message->status.setText(message)))status.setText(SetupStrings.get(this,"pair_ready"));refreshPairStatus();
+  if(UiStatus.paired(this)){
+   new AlertDialog.Builder(this).setMessage(SetupStrings.get(this,"tv_qr_again"))
+       .setNegativeButton(Strings.get(this,"cancel"),null)
+       .setPositiveButton(android.R.string.ok,(d,w)->startTvPairing(null)).show();
+  }else startTvPairing(null);
+ }
+ private void startTvPairing(Runnable continuation){
+  if(busy)return;
+  stopDiscovery();
+  busy=true;
+  afterTvPairing=continuation;
+  for(Button control:controls)control.setEnabled(false);
+  if(hostInput!=null)hostInput.setEnabled(false);
+  status.setText(SetupStrings.get(this,"tv_qr_wait"));
+  startActivityForResult(new android.content.Intent(this,QrPairingActivity.class),TV_PAIRING);
  }
  private static String normalize(String s) {return s==null?"":s.replaceAll("[^a-fA-F0-9]", "").toLowerCase(Locale.ROOT);}
  private String tvMac() throws Exception {
@@ -264,11 +301,8 @@ public class LightsActivity extends Activity {
   if(clientKey==null||clientKey.isEmpty()){status.setText(SetupStrings.get(this,"pair_needed"));return;}
   if(nativeMacAtLoad!=null&&!nativeMacAtLoad.isEmpty()&&!nativeMacAtLoad.equals(bridgeMac)){String id=Diagnostics.id();Diagnostics.event(id,"setup.switch.blocked","reason=native_cache_unverified");String message=FeatureStrings.get(this,"switch_blocked");status.setText(message);new AlertDialog.Builder(this).setMessage(message+"\n"+Strings.get(this,"operation_failed",id)).setPositiveButton("OK",null).show();return;}
   Map<Integer,ContentValues> rows=new LinkedHashMap<>();for(int id:desired){ContentValues row=initial.containsKey(id)?new ContentValues(initial.get(id)):new ContentValues();row.remove("DraftSelected");row.put("LampID",id);if(positions.containsKey(id)){row.put("Angle",positions.get(id));row.put("Brightness",brightness.get(id).getSelectedItemPosition()+1);}if(!row.containsKey("Placement"))row.put("Placement",1);row.put("ConfigureStatus",1);rows.put(id,row);}
-  SharedPreferences api=getSharedPreferences(TvApiClient.PREFS,0);
-  if(api.getString("user","").isEmpty()||api.getString("password","").isEmpty()||api.getString("certificate","").isEmpty()){
-   if(!PairingAccessibility.ready()){String message=SetupStrings.get(this,"app_pair_required");status.setText(message);new AlertDialog.Builder(this).setMessage(message).setPositiveButton("OK",null).show();return;}
-   busy=true;for(Button b:controls)b.setEnabled(false);status.setText(AppPairing.text(this,1));
-   AppPairing.start(this,message->{if(closing||isFinishing()||isDestroyed())return;status.setText(message);if(!message.equals(AppPairing.text(this,6))){busy=false;for(Button b:controls)b.setEnabled(true);}},()->{if(!closing&&!isFinishing()&&!isDestroyed())writeConfiguration(rows,true);});
+  if(!UiStatus.paired(this)){
+   startTvPairing(()->writeConfiguration(rows,true));
    return;
   }
   writeConfiguration(rows,false);
@@ -302,7 +336,7 @@ public class LightsActivity extends Activity {
      initial=readSelection();nativeRowsAtLoad=initial;nativeMacAtLoad=bridgeMac;
      prefs.edit().putString("configured_name",bridgeName).putString("configured_mac",bridgeMac).putString("configured_host",host).commit();
      getSharedPreferences("light_drafts",0).edit().remove(bridgeMac).commit();
-     Diagnostics.event(diagnosticId.get(),"setup.commit.ok","lamps="+rows.size());ui(()->{String message=(newlyPaired?AppPairing.text(this,4)+"\n":"")+SetupStrings.get(this,"saved");status.setText(message);new AlertDialog.Builder(this).setMessage(message).setPositiveButton("OK",(d,w)->connectionScreen()).show();});
+     Diagnostics.event(diagnosticId.get(),"setup.commit.ok","lamps="+rows.size());ui(()->{String message=(newlyPaired?SetupStrings.get(this,"tv_qr_success")+"\n":"")+SetupStrings.get(this,"saved");status.setText(message);new AlertDialog.Builder(this).setMessage(message).setPositiveButton("OK",(d,w)->connectionScreen()).show();});
     }catch(Exception e){
      Diagnostics.error(diagnosticId.get(),"setup.commit.failed",e);
      try{Diagnostics.event(diagnosticId.get(),"setup.rollback.begin","identity_mismatch="+(e instanceof BridgeSwitchGuard.Mismatch));api.setPower(false,()->NativeLink.notifyService(this,false));link.awaitFree();link.restore(snapshot);boolean on="On".equals(snapshot.getString("power"));api.setPower(on,()->NativeLink.notifyService(this,on));if(!recovery.edit().clear().commit())throw new IOException("Rollback marker");Diagnostics.event(diagnosticId.get(),"setup.rollback.complete","");String id=diagnosticId.get();boolean mismatch=e instanceof BridgeSwitchGuard.Mismatch;ui(()->{String message=mismatch?FeatureStrings.get(this,"switch_mismatch"):SetupStrings.get(this,"failed_restored")+id;status.setText(message);if(mismatch)new AlertDialog.Builder(this).setMessage(message+"\n"+Strings.get(this,"operation_failed",id)).setPositiveButton("OK",null).show();});}
@@ -357,7 +391,7 @@ public class LightsActivity extends Activity {
   try{String value=getSharedPreferences("light_drafts",0).getString(mac,"");if(value.isEmpty())return saved;JSONObject draft=new JSONObject(value);if(!nativeSignature().equals(draft.getString("native")))return saved;Map<Integer,ContentValues> restored=new LinkedHashMap<>(saved);JSONArray rows=draft.getJSONArray("rows");for(int i=0;i<rows.length();i++){JSONObject row=rows.getJSONObject(i);ContentValues v=new ContentValues();for(String key:new String[]{"LampID","Angle","Brightness","Placement","ConfigureStatus","DraftSelected"})v.put(key,row.getInt(key));restored.put(row.getInt("LampID"),v);}return restored;}catch(Exception e){Diagnostics.error("draft","draft.load.failed",e);return saved;}
  }
  @Override protected void onPause(){persistDraft();if(!showingLights&&hostInput!=null)prefs.edit().putString("discovery_selected_host",hostInput.getText().toString().trim()).apply();super.onPause();}
- @Override protected void onResume(){super.onResume();refreshPairStatus();restoreConnectionFocus();if(!showingLights&&!busy&&!UiStatus.paired(this)&&getSharedPreferences("tv_pair_flow",0).getBoolean("requested",false)&&PairingAccessibility.ready())status.setText(SetupStrings.get(this,"pair_ready"));}
+ @Override protected void onResume(){super.onResume();refreshPairStatus();restoreConnectionFocus();}
  private void back(){persistDraft();if(showingLights)connectionScreen();else finish();}
  @Override public void onBackPressed(){if(busy){status.setText(Strings.get(this,"wait"));return;}back();}
  @Override protected void onDestroy(){closing=true;stopDiscovery();worker.shutdown();super.onDestroy();}

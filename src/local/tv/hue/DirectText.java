@@ -16,8 +16,16 @@ final class DirectText {
    case "receiver_running":a=new String[]{"běží (jen při instalaci)","running (setup only)","läuft (nur bei Einrichtung)","actif (installation uniquement)","activo (solo durante la instalación)","działa (tylko podczas konfiguracji)"};break;
    case "receiver_stopped":a=new String[]{"neběží (normální stav)","stopped (normal state)","gestoppt (Normalzustand)","arrêté (état normal)","detenido (estado normal)","nie działa (stan normalny)"};break;
    case "air_status":a=new String[]{"Ambilight Air","Ambilight Air","Ambilight Air","Ambilight Air","Ambilight Air","Ambilight Air"};break;
-   case "air_unknown":a=new String[]{"stav zapnutí nezjištěn","enabled state unknown","Aktivierungsstatus unbekannt","état d’activation inconnu","estado de activación desconocido","stan włączenia nieznany"};break;
-   case "air_disabled":a=new String[]{"zakázáno","disabled","deaktiviert","désactivé","desactivado","wyłączony"};break;
+   case "air_paired":a=new String[]{"spárováno","paired","gekoppelt","associé","emparejado","sparowano"};break;
+   case "air_receiving":a=new String[]{"přijímá barvy","receiving colours","empfängt Farben","réception des couleurs","recibiendo colores","odbiera kolory"};break;
+   case "direct_config_required":a=new String[]{
+    "Pro vybraný můstek otevřete Nastavení světel, vyberte oblast Entertainment a uložte nastavení světel. Potom spusťte přímou synchronizaci.",
+    "Open Light settings for the selected Bridge, choose an Entertainment area and save the light settings. Then start direct synchronization.",
+    "Öffnen Sie die Lampeneinstellungen der gewählten Bridge, wählen Sie einen Entertainment-Bereich und speichern Sie die Lampeneinstellungen. Starten Sie dann die direkte Synchronisierung.",
+    "Ouvrez les réglages des lumières du pont sélectionné, choisissez une zone de divertissement et enregistrez les réglages. Lancez ensuite la synchronisation directe.",
+    "Abre la configuración de luces del puente seleccionado, elige un área de entretenimiento y guarda la configuración. A continuación, inicia la sincronización directa.",
+    "Otwórz ustawienia świateł wybranego mostka, wybierz obszar rozrywki i zapisz ustawienia. Następnie uruchom synchronizację bezpośrednią."
+   };break;
    case "enabled":a=new String[]{"povoleno","enabled","aktiviert","activé","activado","włączony"};break;
    case "disabled":a=new String[]{"nenastaveno","not configured","nicht eingerichtet","non configuré","sin configurar","nieskonfigurowany"};break;
    case "running_short":a=new String[]{"spuštěna","running","aktiv","actif","activo","uruchomiony"};break;
@@ -38,14 +46,29 @@ final class DirectText {
    case "sync_failed":a=new String[]{"Přímá synchronizace selhala. Podrobnosti jsou v diagnostice.","Direct synchronization failed. See the diagnostic log for details.","Direkte Synchronisierung fehlgeschlagen. Details stehen im Diagnoseprotokoll.","Échec de la synchronisation directe. Consultez le journal de diagnostic.","Falló la sincronización directa. Consulte el registro de diagnóstico.","Synchronizacja bezpośrednia nie powiodła się. Szczegóły znajdują się w dzienniku diagnostycznym."};break;
    case "finish_air_setup":a=new String[]{"Nejprve dokončete nebo ukončete párování Ambilight Air.","Finish or close Ambilight Air pairing first.","Schließen oder beenden Sie zuerst die Ambilight Air-Kopplung.","Terminez ou fermez d’abord l’association Ambilight Air.","Primero termine o cierre la vinculación de Ambilight Air.","Najpierw zakończ lub zamknij parowanie Ambilight Air."};break;
    case "air_remote_permission":a=new String[]{"Povolit opravu ovladače v průvodci","Enable remote control assistance in the wizard","Fernbedienungshilfe im Assistenten aktivieren","Activer l’aide à la télécommande dans l’assistant","Activar la ayuda del mando en el asistente","Włącz obsługę pilota w kreatorze"};break;
+   case "air_remote_hint":a=new String[]{
+    "Použijte při nastavení Air, pokud v průvodci Philips nereagují šipky nebo tlačítko OK.",
+    "Use during Air setup if the arrow buttons or OK do not respond in the Philips wizard.",
+    "Für die Air-Einrichtung, wenn die Pfeiltasten oder OK im Philips-Assistenten nicht reagieren.",
+    "À utiliser pendant la configuration d’Air si les flèches ou la touche OK ne répondent pas dans l’assistant Philips.",
+    "Úsalo al configurar Air si las flechas o el botón OK no responden en el asistente de Philips.",
+    "Użyj podczas konfiguracji Air, jeśli strzałki lub przycisk OK nie działają w kreatorze Philips."
+   };break;
    case "air_setup":a=new String[]{"Spárovat Ambilight Air","Pair Ambilight Air","Ambilight Air koppeln","Associer Ambilight Air","Vincular Ambilight Air","Sparuj Ambilight Air"};break;
    case "air_network":a=new String[]{"Otevřít nastavení sítě","Open network settings","Netzwerkeinstellungen öffnen","Ouvrir les réglages réseau","Abrir los ajustes de red","Otwórz ustawienia sieci"};break;
-   case "air_setup_ready":a=new String[]{"Přijímač je připraven. Nastavte dočasnou ruční proxy 127.0.0.1:18180 a otevřete průvodce Air. Po skončení obnovte původní proxy.","Receiver ready. Set the temporary manual proxy to 127.0.0.1:18180 and open the Air wizard. Restore the original proxy when finished.","Empfänger bereit. Stellen Sie vorübergehend den manuellen Proxy 127.0.0.1:18180 ein und öffnen Sie den Air-Assistenten. Stellen Sie danach den ursprünglichen Proxy wieder her.","Le récepteur est prêt. Réglez le proxy manuel temporaire sur 127.0.0.1:18180 et ouvrez l’assistant Air. Rétablissez le proxy d’origine à la fin.","Receptor listo. Configure temporalmente el proxy manual 127.0.0.1:18180 y abra el asistente de Air. Restaure el proxy original al terminar.","Odbiornik jest gotowy. Ustaw tymczasowy ręczny serwer proxy na 127.0.0.1:18180 i otwórz kreator Air. Po zakończeniu przywróć poprzednie ustawienie proxy."};break;
+   case "air_setup_ready":a=new String[]{"Přijímač je připraven. Otevřete nastavení Ambilight Air, zvolte Konfigurace a spusťte vyhledávání.","Receiver ready. Open Ambilight Air settings, choose Configuration and start discovery.","Empfänger bereit. Öffnen Sie die Ambilight-Air-Einstellungen, wählen Sie Konfiguration und starten Sie die Suche.","Récepteur prêt. Ouvrez les réglages Ambilight Air, sélectionnez Configuration et lancez la recherche.","Receptor listo. Abre los ajustes de Ambilight Air, elige Configuración e inicia la búsqueda.","Odbiornik jest gotowy. Otwórz ustawienia Ambilight Air, wybierz Konfiguracja i rozpocznij wyszukiwanie."};break;
    case "air_setup_stop":a=new String[]{"Ukončit přijímač","Stop receiver","Empfänger stoppen","Arrêter le récepteur","Detener el receptor","Zatrzymaj odbiornik"};break;
    case "air_setup_failed":a=new String[]{"Přijímač nebo systémové nastavení Air nejsou dostupné.","The receiver or system Air settings are unavailable.","Der Empfänger oder die Air-Systemeinstellungen sind nicht verfügbar.","Le récepteur ou les réglages système d’Air sont indisponibles.","El receptor o los ajustes del sistema de Air no están disponibles.","Odbiornik lub systemowe ustawienia Air są niedostępne."};break;
    case "air_source":a=new String[]{"Zdroj barev: Ambilight Air","Colour source: Ambilight Air","Farbquelle: Ambilight Air","Source des couleurs : Ambilight Air","Fuente de color: Ambilight Air","Źródło kolorów: Ambilight Air"};break;
    case "air_settings":a=new String[]{"Otevřít nastavení Ambilight Air","Open Ambilight Air settings","Ambilight Air-Einstellungen öffnen","Ouvrir les réglages d’Ambilight Air","Abrir los ajustes de Ambilight Air","Otwórz ustawienia Ambilight Air"};break;
-   case "air_hint":a=new String[]{"Zapněte dříve nastavený Ambilight Air v nabídce TV. Pro porovnání s TV API vypněte volbu zdroje Air.","Enable your configured Ambilight Air in TV settings. Turn off the Air source to compare with TV API.","Aktivieren Sie das eingerichtete Ambilight Air in den TV-Einstellungen. Deaktivieren Sie die Air-Quelle zum Vergleich mit der TV-API.","Activez Ambilight Air après sa configuration dans les réglages du téléviseur. Désactivez la source Air pour comparer avec l’API TV.","Active Ambilight Air después de configurarlo en el televisor. Desactive la fuente Air para comparar con la API del televisor.","Włącz wcześniej skonfigurowany Ambilight Air w ustawieniach telewizora. Wyłącz źródło Air, aby porównać z TV API."};break;
+   case "air_hint":a=new String[]{
+    "Po prvním nastavení se aplikace při spuštění přímé synchronizace pokusí Air zapnout. Průvodce Philips se může krátce zobrazit.",
+    "After setup, the app tries to enable Air when you start direct synchronization. The Philips wizard may appear briefly.",
+    "Nach der Einrichtung versucht die App, Air beim Start der direkten Synchronisierung zu aktivieren. Der Philips-Assistent kann kurz erscheinen.",
+    "Après la configuration, l’application essaie d’activer Air au démarrage de la synchronisation directe. L’assistant Philips peut s’afficher brièvement.",
+    "Tras la configuración, la aplicación intenta activar Air al iniciar la sincronización directa. El asistente de Philips puede aparecer brevemente.",
+    "Po konfiguracji aplikacja próbuje włączyć Air przy uruchamianiu synchronizacji bezpośredniej. Kreator Philips może pojawić się na chwilę."
+   };break;
    case "air_unavailable":a=new String[]{"TV neposílá data Ambilight Air. Zkontrolujte jeho nastavení a zapnutí.","The TV is not sending Ambilight Air data. Check that Air is configured and enabled.","Der Fernseher sendet keine Ambilight Air-Daten. Prüfen Sie Einrichtung und Aktivierung.","Le téléviseur n’envoie pas de données Ambilight Air. Vérifiez sa configuration et son activation.","El televisor no envía datos de Ambilight Air. Compruebe que esté configurado y activado.","Telewizor nie wysyła danych Ambilight Air. Sprawdź konfigurację i włączenie."};break;
    case "title":a=new String[]{"Přímá synchronizace – test","Direct synchronization – test","Direkte Synchronisierung – Test","Synchronisation directe – test","Sincronización directa – prueba","Synchronizacja bezpośrednia – test"};break;
    case "help":a=new String[]{"Vypněte nativní synchronizaci a vyberte Entertainment zónu. U jejích světel nastavte pozici a jas.","Turn off native synchronization and select an Entertainment area. Set the position and brightness of its lights.","Schalten Sie die native Synchronisierung aus und wählen Sie einen Entertainment-Bereich. Stellen Sie Position und Helligkeit seiner Lampen ein.","Désactivez la synchronisation native et choisissez une zone Entertainment. Réglez la position et la luminosité de ses lumières.","Desactive la sincronización nativa y elija una zona Entertainment. Ajuste la posición y el brillo de sus luces.","Wyłącz synchronizację natywną i wybierz strefę Entertainment. Ustaw położenie i jasność jej świateł."};break;
@@ -53,12 +76,12 @@ final class DirectText {
    case "ambilight_on":a=new String[]{"Zapněte Ambilight na televizoru a zkuste to znovu.","Turn on TV Ambilight and try again.","TV-Ambilight einschalten und erneut versuchen.","Activez Ambilight sur le téléviseur et réessayez.","Active Ambilight en el televisor e inténtelo de nuevo.","Włącz Ambilight w telewizorze i spróbuj ponownie."};break;
    case "start":a=new String[]{"Spustit přímou synchronizaci","Start direct synchronization","Direkte Synchronisierung starten","Démarrer la synchronisation directe","Iniciar sincronización directa","Uruchom synchronizację bezpośrednią"};break;
    case "stop_hint":a=new String[]{
-    "Chování světel po zastavení nastavíte v aplikaci Philips Hue u vybrané zábavní oblasti.",
-    "Set what the lights do after stopping in the Philips Hue app, under the selected Entertainment area.",
-    "Das Verhalten der Lampen nach dem Stopp stellen Sie in der Philips-Hue-App für den gewählten Entertainment-Bereich ein.",
-    "Réglez le comportement des lumières à l’arrêt dans la zone de divertissement sélectionnée dans l’application Philips Hue.",
-    "Configura qué hacen las luces al detener la sincronización en el área de entretenimiento seleccionada en la aplicación Philips Hue.",
-    "Zachowanie świateł po zatrzymaniu ustawisz w aplikacji Philips Hue, w wybranym obszarze rozrywki."
+    "Chování světel po zastavení nastavíte v mobilní aplikaci Philips Hue u vybrané zábavní oblasti.",
+    "Set what the lights do after stopping in the Philips Hue mobile app, under the selected Entertainment area.",
+    "Das Verhalten der Lampen nach dem Stopp stellen Sie in der mobilen Philips-Hue-App für den gewählten Entertainment-Bereich ein.",
+    "Réglez le comportement des lumières à l’arrêt dans la zone de divertissement sélectionnée dans l’application mobile Philips Hue.",
+    "Configura qué hacen las luces al detener la sincronización en el área de entretenimiento seleccionada en la aplicación móvil Philips Hue.",
+    "Zachowanie świateł po zatrzymaniu ustawisz w aplikacji mobilnej Philips Hue, w wybranym obszarze rozrywki."
    };break;
    case "stop":a=new String[]{"Zastavit synchronizaci","Stop synchronization","Synchronisierung stoppen","Arrêter la synchronisation","Detener la sincronización","Zatrzymaj synchronizację"};break;
    case "load_areas":a=new String[]{"Načíst oblasti","Load areas","Bereiche laden","Charger les zones","Cargar zonas","Wczytaj strefy"};break;

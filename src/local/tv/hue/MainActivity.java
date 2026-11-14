@@ -11,7 +11,8 @@ import android.widget.LinearLayout;
 import android.widget.TextView;
 
 public class MainActivity extends Activity {
- @Override protected void attachBaseContext(android.content.Context base){super.attachBaseContext(AppLanguage.wrap(base));}
+ private String initialLanguage;
+ @Override protected void attachBaseContext(android.content.Context base){initialLanguage=base.getSharedPreferences("app_language",0).getString("language","");super.attachBaseContext(AppLanguage.wrap(base));}
  private TextView status;
  private TextView stateSummary;private Button onButton,offButton;private long statusGeneration;
  private boolean statusReading;
@@ -57,7 +58,7 @@ public class MainActivity extends Activity {
   MenuStyle.apply(languagePicker);
   String selected=getSharedPreferences("app_language",0).getString("language","");int choice=0;for(int i=0;i<codes.length;i++)if(codes[i].equals(selected))choice=i;
   languagePicker.setSelection(choice);
-  languagePicker.setOnItemSelectedListener(new android.widget.AdapterView.OnItemSelectedListener(){public void onNothingSelected(android.widget.AdapterView<?> p){} public void onItemSelected(android.widget.AdapterView<?> p,android.view.View v,int pos,long id){String current=getSharedPreferences("app_language",0).getString("language","");if(!codes[pos].equals(current)){getSharedPreferences("app_language",0).edit().putString("language",codes[pos]).apply();recreate();}}});
+  languagePicker.setOnItemSelectedListener(new android.widget.AdapterView.OnItemSelectedListener(){public void onNothingSelected(android.widget.AdapterView<?> p){} public void onItemSelected(android.widget.AdapterView<?> p,android.view.View v,int pos,long id){String current=getSharedPreferences("app_language",0).getString("language","");if(!codes[pos].equals(current)){getSharedPreferences("app_language",0).edit().putString("language",codes[pos]).apply();initialLanguage=codes[pos];recreate();}}});
   stateSummary=new TextView(this);stateSummary.setTextColor(Color.WHITE);stateSummary.setTextSize(17);panel.addView(stateSummary);
   TextView description=new TextView(this);
   description.setText(Strings.get(this,"restore"));
@@ -97,10 +98,11 @@ public class MainActivity extends Activity {
   command(getIntent());
  }
  private static String readProperty(String key){Process process=null;try{process=new ProcessBuilder("/system/bin/getprop",key).start();if(!process.waitFor(1,java.util.concurrent.TimeUnit.SECONDS))return "";byte[] b=new byte[256];int n=process.getInputStream().read(b);return n<0?"":new String(b,0,n,"UTF-8").trim();}catch(Exception e){return "";}finally{if(process!=null)process.destroy();}}
- private void advanced(){new AlertDialog.Builder(this).setTitle(FeatureStrings.get(this,"advanced")).setItems(new String[]{SetupStrings.get(this,"native_wizard"),FeatureStrings.get(this,"reset"),FeatureStrings.get(this,"identity_title"),DirectText.get(this,"option")},(d,item)->{
+ private void advanced(){new AlertDialog.Builder(this).setTitle(FeatureStrings.get(this,"advanced")).setItems(new String[]{SetupStrings.get(this,"native_wizard"),AppUpdates.label(this,"check"),SetupStrings.get(this,"backup_menu"),FeatureStrings.get(this,"identity_title"),DirectText.get(this,"option")},(d,item)->{
   if(item==0)openNativeWizard();
-  else if(item==1)new AlertDialog.Builder(this).setTitle(FeatureStrings.get(this,"reset")).setMessage(FeatureStrings.get(this,"reset_help")).setNegativeButton(Strings.get(this,"cancel"),null).setPositiveButton(FeatureStrings.get(this,"reset_confirm"),(confirm,w)->reset()).show();
-  else if(item==2)new AlertDialog.Builder(this).setMessage(FeatureStrings.get(this,"identity")).setPositiveButton("OK",null).show();
+  else if(item==1)AppUpdates.check(this);
+  else if(item==2)startActivity(new Intent(this,BackupActivity.class));
+  else if(item==3)new AlertDialog.Builder(this).setMessage(FeatureStrings.get(this,"identity")).setPositiveButton("OK",null).show();
   else startActivity(new Intent(this,RootAreasActivity.class));
  }).setNegativeButton(Strings.get(this,"back"),null).show();}
  private boolean directBusy(){String s=RootSyncService.state();return "starting".equals(s)||"running".equals(s)||RootSessionGate.busy()||RootRecovery.pending(this);}
@@ -111,10 +113,10 @@ public class MainActivity extends Activity {
  }
  @Override protected void onActivityResult(int request,int result,Intent data){super.onActivityResult(request,result,data);if(request!=WIZARD_REQUEST||wizardPriorPower.isEmpty())return;String prior=wizardPriorPower;wizardPriorPower="";long token=generation.incrementAndGet();busy=true;for(Button b:buttons)b.setEnabled(false);apiWorker.execute(()->{try{restoreWizardPower(prior,token);for(int seconds:new int[]{3,7,12,20})observer.schedule(()->{if(generation.get()!=token)return;try{restoreWizardPower(prior,token);}catch(Exception e){Diagnostics.error("wizard","wizard.recheck.error",e);}},seconds,java.util.concurrent.TimeUnit.SECONDS);}catch(Exception e){String id=Diagnostics.id();Diagnostics.error(id,"wizard.restore.error",e);runOnUiThread(()->status.setText(Strings.get(this,"request_failed",e.getClass().getSimpleName(),id)));}finally{runOnUiThread(()->{if(isDestroyed())return;busy=false;for(Button b:buttons)b.setEnabled(true);refreshStatus();});}});}
  private void restoreWizardPower(String prior,long token)throws Exception{if(generation.get()!=token)return;TvApiClient api=new TvApiClient(this);String current=api.getPower();if(!prior.equals(current)&&generation.get()==token){String id=Diagnostics.id();Diagnostics.event(id,"wizard.restore.begin","desired="+prior+" observed="+current);api.setPower("On".equals(prior),()->notifyNative("On".equals(prior),id));Diagnostics.event(id,"wizard.restore.complete","desired="+prior);}}
- private void reset(){if(busy||directBusy()){status.setText(DirectText.get(this,"busy"));return;}generation.incrementAndGet();statusGeneration++;busy=true;for(Button b:buttons)b.setEnabled(false);apiWorker.execute(()->{String message;try{SettingsReset.run(this);focusedButton=2;message=FeatureStrings.get(this,"reset_done");}catch(Exception e){String id=Diagnostics.id();Diagnostics.error(id,"settings.reset.failed",e);message=Strings.get(this,"request_failed",e.getClass().getSimpleName(),id);}String result=message;runOnUiThread(()->{if(isDestroyed())return;for(Button b:buttons)b.setEnabled(true);busy=false;status.setText(result);restoreMenuFocus();refreshStatus();});});}
+
  private String directSummary(){String s=RootSyncService.state();if("starting".equals(s))return "\n"+DirectText.get(this,"starting");if("running".equals(s))return "\n"+DirectText.get(this,"running");if("recovery".equals(s))return "\n"+DirectText.get(this,"recovery");return "";}
  private void refreshStatus(){if(busy||statusReading||isDestroyed())return;statusReading=true;long token=++statusGeneration;statusWorker.execute(()->{String power=FeatureStrings.get(this,"unknown");if(UiStatus.paired(this))try{power=new TvApiClient(this).getPower();}catch(Exception e){Diagnostics.error("status","power.read.failed",e);}String ambilight=FeatureStrings.get(this,"unknown"),ambilightObserved="unknown";if(UiStatus.paired(this))try{String al=new TvApiClient(this).getAmbilightPower();ambilightObserved=al;ambilight="On".equals(al)?"✓ "+FeatureStrings.get(this,"state_on"):"Off".equals(al)?"✕ "+FeatureStrings.get(this,"state_off"):ambilight;}catch(Exception e){Diagnostics.error("status","ambilight.read.failed",e);}String value=power;String nativeState=UiStatus.nativeActiveValue();String snapshot=value+"/"+nativeState+"/"+ambilightObserved;if(!snapshot.equals(previousSyncState)){previousSyncState=snapshot;Diagnostics.event("status","sync.state.changed","saved="+value+" native_active="+nativeState+" ambilight="+ambilightObserved);}String summary=FeatureStrings.get(this,"bridge")+": "+UiStatus.configuredBridge(this)+"\n"+FeatureStrings.get(this,"tv_pairing")+": "+(UiStatus.paired(this)?"✓ "+FeatureStrings.get(this,"stored"):"✕ "+FeatureStrings.get(this,"not_ready"))+"\n"+FeatureStrings.get(this,"switch")+": "+("On".equals(value)?FeatureStrings.get(this,"state_on"):"Off".equals(value)?FeatureStrings.get(this,"state_off"):value)+"\n"+FeatureStrings.get(this,"ambilight")+": "+ambilight+"\n"+UiStatus.nativeActiveLabel(this,nativeState)+directSummary();runOnUiThread(()->{statusReading=false;if(isDestroyed()||busy||token!=statusGeneration)return;stateSummary.setText(UiColors.summary(this,summary));onButton.setText(UiColors.marks(("On".equals(value)?"✓ ":"")+Strings.get(this,"on")));offButton.setText(UiColors.marks(("Off".equals(value)?"✓ ":"")+Strings.get(this,"off")));onButton.setTextColor("On".equals(value)?UiColors.GREEN:Color.WHITE);offButton.setTextColor("Off".equals(value)?UiColors.RED:Color.WHITE);});});}
- @Override protected void onResume(){super.onResume();if(RootRecovery.pending(this)&&!RootSessionGate.busy()){startActivity(new Intent(this,RootRecoveryActivity.class));return;}restoreMenuFocus();refreshStatus();refreshHandler.removeCallbacks(refreshTick);refreshHandler.postDelayed(refreshTick,5000);}
+ @Override protected void onResume(){super.onResume();if(!initialLanguage.equals(getSharedPreferences("app_language",0).getString("language",""))){recreate();return;}if(RootRecovery.pending(this)&&!RootSessionGate.busy()){startActivity(new Intent(this,RootRecoveryActivity.class));return;}restoreMenuFocus();refreshStatus();refreshHandler.removeCallbacks(refreshTick);refreshHandler.postDelayed(refreshTick,5000);}
  @Override protected void onPause(){refreshHandler.removeCallbacks(refreshTick);super.onPause();}
  private void restoreMenuFocus(){final int target=focusedButton;getWindow().getDecorView().post(()->{if(!busy&&target>=0&&target<buttons.size()){buttons.get(target).requestFocus();}});}
  @Override protected void onSaveInstanceState(Bundle state){super.onSaveInstanceState(state);state.putInt("focused_button",focusedButton);state.putString("wizard_prior_power",wizardPriorPower);}
@@ -141,6 +143,7 @@ public class MainActivity extends Activity {
   },seconds,java.util.concurrent.TimeUnit.SECONDS);
  }
  private void sync(boolean on) {
+  if(SettingsBackup.hasInterruptedRestore(this)){startActivity(new Intent(this,BackupActivity.class));return;}
   if(directBusy()){status.setText(DirectText.get(this,"busy"));return;}
   if(on&&getSharedPreferences("native_setup_recovery",0).contains("snapshot")){status.setText(SetupStrings.get(this,"recovery"));startActivity(new Intent(this,LightsActivity.class));return;}
   if(busy){Diagnostics.event("ui","request.ignored","busy=true");return;}

@@ -30,8 +30,11 @@ final class TvApiClient {
   this(context,operation,context.getSharedPreferences(PREFS,Context.MODE_PRIVATE));
  }
  private TvApiClient(Context context,String operation,SharedPreferences p) throws Exception {
+  this(context,operation,p.getString("user",""),p.getString("password",""),p.getString("certificate",""));
+ }
+ TvApiClient(Context context,String operation,String user,String password,String pin)throws Exception{
   this.operation=operation;started=android.os.SystemClock.elapsedRealtime();Diagnostics.init(context);trace("config.begin");
-  user=p.getString("user","");password=p.getString("password","");pin=p.getString("certificate","");
+  this.user=user;this.password=password;this.pin=pin;
   // The launcher controls the TV on which it runs; never depend on its LAN/VPN IP.
   host="127.0.0.1";
   if(user.isEmpty()||password.isEmpty()||!pin.matches("[a-f0-9]{64}"))throw new IOException("Přístup k TV API není nastavený. Obnovte párování TV API podle návodu k APK.");
@@ -118,11 +121,6 @@ final class TvApiClient {
   if(value==null||value.optLong("Nodeid",-1)!=nodes.style||!value.optBoolean("Available",false)||data==null)return "unknown";
   long active=data.optLong("activenode_id",-1);if(active==nodes.off)return "Off";if(nodes.enabled.contains(active))return "On";return "unknown";
  }
- String pairingGrant(String body) throws Exception {
-  deadline=android.os.SystemClock.elapsedRealtime()+15000;
-  try {connect();return request("POST",body,"/6/pair/grant");}finally{close();}
- }
- static TvApiClient pairingClient(Context context,SharedPreferences pending)throws Exception{return new TvApiClient(context,"pairing",pending);}
  private String request(String method,String body) throws Exception {return request(method,body,"/6/HueLamp/power");}
  private String request(String method,String body,String uri) throws Exception {
   final int responseLimit="/6/menuitems/settings/structure".equals(uri)?1048576:65536;
