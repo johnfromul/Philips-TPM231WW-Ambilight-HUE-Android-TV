@@ -10,6 +10,7 @@ import android.content.SharedPreferences;
 import android.os.Bundle;
 import android.os.IBinder;
 import android.os.ResultReceiver;
+import android.os.SystemClock;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
@@ -21,12 +22,16 @@ public final class RootSyncService extends Service {
  static final String AIR_ACTIVATION="local.tv.hue.root.AIR_ACTIVATION";
  private static volatile String state="off";
  private static volatile boolean usingAir;
+ private static volatile AirStatusMonitor airStatus;
  private static volatile String failureKey="sync_failed";
  private final AtomicBoolean stopRequested=new AtomicBoolean();
  private Thread worker;
 
  static String state(){return state;}
- static boolean usingAir(){return usingAir;}
+ static boolean airEnabledInferred(){
+  AirStatusMonitor monitor=airStatus;
+  return "running".equals(state)&&monitor!=null&&monitor.confirmed();
+ }
  static String failureKey(){return failureKey;}
  @Override public IBinder onBind(Intent intent){return null;}
  @Override public int onStartCommand(Intent intent,int flags,int id){
@@ -53,15 +58,51 @@ public final class RootSyncService extends Service {
   worker.start();
   return START_NOT_STICKY;
  }
+ private final class AirStatusMonitor implements Runnable {
+  private final HueEntertainmentApi api;
+  private final String area;
+  private final AmbilightAirSource source;
+  private volatile long confirmedAt=-1;
+
+  AirStatusMonitor(HueEntertainmentApi api,String area,AmbilightAirSource source){
+   this.api=api;this.area=area;this.source=source;
+  }
+
+  boolean confirmed(){
+   long time=confirmedAt;
+   return !stopRequested.get()&&time>=0&&SystemClock.elapsedRealtime()-time<=10000
+       &&source.receivingColors();
+  }
+
+  @Override public void run(){
+   try{
+    while(!stopRequested.get()&&!Thread.currentThread().isInterrupted()){
+     try{
+      confirmedAt=api.owner(area)==EntertainmentLease.Owner.OURS?SystemClock.elapsedRealtime():-1;
+     }catch(Exception error){
+      confirmedAt=-1;
+     }
+     Thread.sleep(5000);
+    }
+   }catch(InterruptedException error){
+    Thread.currentThread().interrupt();
+   }
+  }
+ }
+
  private final class TvStatusMonitor implements Runnable {
   private static final long MAX_UNVERIFIED_MS=15000;
+  private static final long AIR_API_RECOVERY_MS=45000;
   private final String id;
   private volatile long lastVerified=android.os.SystemClock.elapsedRealtime();
+  private volatile long unavailableSince=-1;
   private volatile String confirmedStop;
   TvStatusMonitor(String id){this.id=id;}
   String stopReason(){
    if(confirmedStop!=null)return confirmedStop;
-   return android.os.SystemClock.elapsedRealtime()-lastVerified>=MAX_UNVERIFIED_MS
+   long since=usingAir?unavailableSince:lastVerified;
+   long limit=usingAir?AIR_API_RECOVERY_MS:MAX_UNVERIFIED_MS;
+   return since>=0&&android.os.SystemClock.elapsedRealtime()-since>=limit
        ?"tv_status_unverified":null;
   }
   @Override public void run(){
@@ -82,13 +123,17 @@ public final class RootSyncService extends Service {
      if(!"Off".equals(nativePower)||!"On".equals(ambilight))
       throw new java.io.IOException("TV status unavailable");
      lastVerified=android.os.SystemClock.elapsedRealtime();
-     if(retry)Diagnostics.event(id,"direct.tv_status.recovered","verified=true");
+     if(retry)Diagnostics.event(id,"direct.tv_status.recovered","outage_ms="+(lastVerified-unavailableSince));
+     unavailableSince=-1;
      retry=false;delay=5000;
     }catch(InterruptedException e){
      Thread.currentThread().interrupt();return;
     }catch(Exception e){
      if(Thread.currentThread().isInterrupted()||stopRequested.get())return;
-     Diagnostics.error(id,"direct.tv_status."+check+".retry",e);
+     if(!retry){
+      unavailableSince=android.os.SystemClock.elapsedRealtime();
+      Diagnostics.error(id,"direct.tv_status."+check+".retry",e);
+     }
      retry=true;delay=500;
     }
    }
@@ -120,6 +165,7 @@ public final class RootSyncService extends Service {
  private void runSession(ResultReceiver activation){
   RootSyncEngine engine=null;
   Thread monitorThread=null;
+  Thread airStatusThread=null;
   String diagnosticId=Diagnostics.id();String stopReason="requested";
   String stage="recovery_check";
   try{
@@ -155,6 +201,12 @@ public final class RootSyncService extends Service {
     engine.start();
     Diagnostics.event(diagnosticId,"direct.session.started","lights="+lamps.size());
     state="running";
+    if(source instanceof AmbilightAirSource){
+     AirStatusMonitor statusMonitor=new AirStatusMonitor(api,area,(AmbilightAirSource)source);
+     airStatus=statusMonitor;
+     airStatusThread=new Thread(statusMonitor,"direct-air-status");
+     airStatusThread.start();
+    }
     stage="frame_stream";
     long window=System.nanoTime(),total=0,max=0;int frames=0;long next=System.nanoTime();
     TvStatusMonitor monitor=new TvStatusMonitor(diagnosticId);
@@ -195,6 +247,8 @@ public final class RootSyncService extends Service {
    state="error";
   }
   finally{
+   airStatus=null;
+   if(airStatusThread!=null)airStatusThread.interrupt();
    if(monitorThread!=null)monitorThread.interrupt();
    if(engine!=null)try{
     engine.stop(!"error".equals(state));

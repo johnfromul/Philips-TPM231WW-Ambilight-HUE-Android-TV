@@ -9,6 +9,8 @@ Open **Advanced options → Direct Hue synchronization (experimental)**. Direct 
 
 The 1.14z preview was tested on the owner's 65OLED909/12, Android 14, firmware `TPM231WW_R.201.100.228.214` over Ethernet. See [compatibility notes](COMPATIBILITY.md) for previous native tests.
 
+Direct Sync infers that Ambilight Air is enabled when the running session uses Air, the TV sends fresh colour frames, and the Hue Bridge reports our Entertainment session as active. The indicator shows an unknown switch state when any of those signals is unavailable.
+
 ## Known issues
 
 > **Warning about live TV channel scrolling**

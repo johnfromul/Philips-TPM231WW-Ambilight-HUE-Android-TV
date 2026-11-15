@@ -241,8 +241,8 @@ public final class RootAreasActivity extends Activity {
   start.setText(UiColors.marks((running?"✓ ":"")+DirectText.get(this,"start")));
   bridgeStatus.setText(DirectText.get(this,"bridge_ip")+": "+DirectBridgeProfiles.current(this).getString("host",""));
   boolean receiver=AirSetupActivity.isRunning();
-  boolean receivingAir=running&&RootSyncService.usingAir();
-  String airState=receivingAir?"✓ "+DirectText.get(this,"air_receiving"):configured?"✓ "+DirectText.get(this,"air_paired"):"✕ "+DirectText.get(this,"disabled");
+  String airState=RootSyncService.airEnabledInferred()?"✓ "+DirectText.get(this,"air_inferred_enabled")
+      :DirectText.get(this,"air_switch_unknown");
   setupStatus.setText(UiColors.marks(DirectText.get(this,"receiver_status")+": "+(receiver?DirectText.get(this,"receiver_running"):DirectText.get(this,"receiver_stopped"))+"\n"+DirectText.get(this,"air_status")+": "+airState+"\n"+DirectText.get(this,"direct_status")+": "+(running?"✓ "+DirectText.get(this,"direct_running"):"✕ "+DirectText.get(this,"direct_stopped"))));
  }
  private void showLights(boolean show){

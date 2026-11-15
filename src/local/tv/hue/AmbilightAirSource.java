@@ -16,6 +16,7 @@ import java.util.function.BooleanSupplier;
 /** Receives Philips ExtPixels from the local TV before the Hue stream is opened. */
 final class AmbilightAirSource implements RootSyncCore.Source {
  static final String MARKER="ambilight_air_v1";
+ private static final long MAX_FRAME_AGE_MS=1500;
  static final class Unavailable extends IOException {}
  private final Context context;
  private final BooleanSupplier activateAir;
@@ -134,9 +135,19 @@ final class AmbilightAirSource implements RootSyncCore.Source {
    }
   }finally{firstFrame.countDown();}
  }
+ boolean receivingColors(){
+  Frame frame=latest;
+  if(!fresh(frame))return false;
+  for(int[] zone:frame.zones)
+   if(zone[0]!=0||zone[1]!=0||zone[2]!=0)return true;
+  return false;
+ }
+ private boolean fresh(Frame frame){
+  return receiveError==null&&frame!=null&&SystemClock.elapsedRealtime()-frame.time<=MAX_FRAME_AGE_MS;
+ }
  public int[][] read()throws Exception{
   Frame frame=latest;
-  if(receiveError!=null||frame==null||SystemClock.elapsedRealtime()-frame.time>1500)
+  if(!fresh(frame))
    throw new Unavailable();
   int[][] rgb=new int[lamps.size()][];
   for(int i=0;i<rgb.length;i++)rgb[i]=frame.zones[lamps.get(i).angle];
