@@ -42,7 +42,7 @@ public final class AirSetupActivity extends Activity {
     @Override public void onCreate(Bundle state) {
         super.onCreate(state);
         if(isRunning()||RootSessionGate.busy()||RootRecovery.pending(this)
-                ||"starting".equals(RootSyncService.state())||"running".equals(RootSyncService.state())){
+                ||RootSyncService.sessionActive()){
             android.widget.Toast.makeText(this,DirectText.get(this,"busy"),android.widget.Toast.LENGTH_LONG).show();
             finish();
             return;

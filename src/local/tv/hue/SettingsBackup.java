@@ -26,8 +26,7 @@ final class SettingsBackup {
 
  static void checkIdle(Context context)throws IOException{
   String state=RootSyncService.state();
-  if(RootSessionGate.busy()||RootRecovery.pending(context)||"starting".equals(state)||
-      "running".equals(state)||"recovery".equals(state)||AirSetupActivity.isRunning()
+  if(RootSessionGate.busy()||RootRecovery.pending(context)||RootSyncService.sessionActive()||"recovery".equals(state)||AirSetupActivity.isRunning()
       ||context.getSharedPreferences("native_setup_recovery",0).contains("snapshot"))
    throw new IOException("Synchronization or recovery in progress");
  }

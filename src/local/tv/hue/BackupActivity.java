@@ -14,7 +14,9 @@ import android.os.Bundle;
 import android.os.Environment;
 import android.provider.MediaStore;
 import android.view.Gravity;
+import android.view.View;
 import android.widget.Button;
+import android.widget.CheckBox;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
 import android.widget.TextView;
@@ -69,11 +71,18 @@ public final class BackupActivity extends Activity {
    status.setText(label("backup_hint"));
    add(panel,"backup_export",this::export);
    add(panel,"backup_import",this::choose);
-   add(panel,"backup_wipe",()->confirm("backup_confirm_wipe",()->run(()->{
-    SettingsBackup.checkIdle(this);
-    SettingsReset.run(this);
-    return textResult("backup_wiped");
-   },true)));
+   Button wipe=add(panel,"backup_wipe",this::confirmWipe);
+   TextView airHint=new TextView(this);
+   airHint.setText(label("backup_air_hint"));
+   airHint.setTextColor(Color.LTGRAY);
+   airHint.setTextSize(14);
+   airHint.setGravity(Gravity.CENTER);
+   int gap=Math.round(6*getResources().getDisplayMetrics().density);
+   airHint.setPadding(0,0,0,gap);
+   LinearLayout.LayoutParams hintParams=new LinearLayout.LayoutParams(
+       wipe.getLayoutParams().width,-2);
+   hintParams.gravity=Gravity.CENTER_HORIZONTAL;
+   panel.addView(airHint,hintParams);
   }
   Button back=new Button(this);
   back.setText(Strings.get(this,"back"));
@@ -100,22 +109,47 @@ public final class BackupActivity extends Activity {
   buttons.add(button);
  }
 
- private void add(LinearLayout panel,String key,Runnable action){
+ private Button add(LinearLayout panel,String key,Runnable action){
   Button button=new Button(this);
   button.setText(label(key));
   style(panel,button);
   button.setOnClickListener(view->action.run());
+  return button;
  }
 
  private String label(String key){return SetupStrings.get(this,key);}
  private Runnable textResult(String key){return ()->status.setText(label(key));}
 
- private void confirm(String key,Runnable action){
-  AlertDialog dialog=new AlertDialog.Builder(this)
+ private void confirm(String key,View extra,Runnable action){
+  AlertDialog.Builder builder=new AlertDialog.Builder(this)
       .setMessage(label(key)).setNegativeButton(Strings.get(this,"cancel"),null)
-      .setPositiveButton(android.R.string.ok,(d,w)->action.run()).create();
+      .setPositiveButton(android.R.string.ok,(d,w)->action.run());
+  if(extra!=null)builder.setView(extra);
+  AlertDialog dialog=builder.create();
   dialog.setOnShowListener(d->dialog.getButton(AlertDialog.BUTTON_NEGATIVE).requestFocus());
   dialog.show();
+ }
+
+ private void confirmWipe(){
+  CheckBox resetAir=new CheckBox(this);
+  resetAir.setText(label("backup_air_option"));
+  confirm("backup_confirm_wipe",resetAir,()->{
+   boolean openAir=resetAir.isChecked();
+   run(()->{
+    SettingsBackup.checkIdle(this);
+    SettingsReset.run(this);
+    return ()->{
+     status.setText(label("backup_wiped"));
+     if(openAir){
+      try{
+       startActivity(new Intent("android.settings.AMBILIGHT_AIR"));
+      }catch(android.content.ActivityNotFoundException|SecurityException error){
+       status.setText(label("backup_air_unavailable"));
+      }
+     }
+    };
+   },true);
+  });
  }
 
  private void export(){
@@ -189,7 +223,7 @@ public final class BackupActivity extends Activity {
  }
 
  private void restore(Uri file){
-  confirm("backup_confirm_import",()->run(()->{
+  confirm("backup_confirm_import",null,()->run(()->{
    org.json.JSONObject incoming;
    try(InputStream stream=getContentResolver().openInputStream(file)){incoming=SettingsBackup.read(stream);}
    catch(Exception error){

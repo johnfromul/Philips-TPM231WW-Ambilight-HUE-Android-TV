@@ -2,9 +2,10 @@
 
 Open **Advanced options → Direct Hue synchronization (experimental)**. Direct Sync sends colours to a Hue Entertainment area. Select **Colour source: Ambilight Air** for Philips Air colours, or clear it to use the measured Ambilight TV API. Keep TV Ambilight enabled and native Hue synchronization disabled.
 
-- [Set up Ambilight Air](AIR-SETUP.md) or pair the TV API to use measured colours.
-- Select a paired Bridge and save the Entertainment area and lights in **Light settings**. Set position, brightness and transition smoothing there. Stop the current session before switching Bridges. Save changes and restart Direct Sync to apply them.
+- [Set up Ambilight Air](AIR-SETUP.md) or use the TV API for measured colours. Pair the app with the TV from the Direct Sync screen before starting.
+- In 1.15-test2, pair the Bridge over HTTPS and approve its certificate when prompted. Select the paired Bridge and save the Entertainment area and lights in **Light settings**. Set position, brightness and transition smoothing there. Stop Direct Sync before editing lights or switching Bridges.
 - Set light behaviour after stopping in the Philips Hue mobile app under the selected Entertainment area.
+- 1.15-test2 remembers a running session across standby and full reboot. Choosing **Stop** clears that request. See the [OLED909 tests and prerequisites](RELEASE-1.15-test2.md#automatic-resume).
 - For unexpected stops, see [USB diagnostics](DIAGNOSTICS.md#long-running-direct-sync-log-to-usb).
 
 The 1.14z preview was tested on the owner's 65OLED909/12, Android 14, firmware `TPM231WW_R.201.100.228.214` over Ethernet. See [compatibility notes](COMPATIBILITY.md) for previous native tests.

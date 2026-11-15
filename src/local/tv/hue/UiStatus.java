@@ -1,7 +1,7 @@
 package local.tv.hue;
 import android.content.*;import android.database.Cursor;import android.net.Uri;import java.util.concurrent.TimeUnit;
 final class UiStatus {
- static boolean paired(Context c){android.content.SharedPreferences p=c.getSharedPreferences(TvApiClient.PREFS,0);return !p.getString("user","").isEmpty()&&!p.getString("password","").isEmpty()&&!p.getString("certificate","").isEmpty();}
+ static boolean paired(Context c){android.content.SharedPreferences p=c.getSharedPreferences(TvApiClient.PREFS,0);return !p.getString("user","").isEmpty()&&!p.getString("password","").isEmpty()&&p.getString("certificate","").matches("[a-f0-9]{64}");}
  static String configuredBridge(Context c){
   try(Cursor cursor=c.getContentResolver().query(Uri.withAppendedPath(NativeLink.BASE,"HueBridgeInfo"),new String[]{"MacAddr"},null,null,null)){
    if(cursor!=null&&cursor.moveToFirst()){String mac=cursor.getString(0).replace(":","").toLowerCase(java.util.Locale.ROOT);android.content.SharedPreferences p=c.getSharedPreferences("hue_bridge",0);

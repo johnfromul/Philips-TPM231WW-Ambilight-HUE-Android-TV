@@ -46,7 +46,8 @@ public final class RootAreasActivity extends Activity {
  private EditText bridgeHost;
  private TextView status;
  private String lastSyncState="off";
- private Button load,start,stop,airSettings,openLights;
+ private static final int PAIR_TV=410;
+ private Button load,start,stop,airSettings,openLights,pairTv;
  private TextView bridgeStatus,setupStatus;
  private volatile boolean active;
  private LinearLayout lightRows;
@@ -64,7 +65,7 @@ public final class RootAreasActivity extends Activity {
  private SeekBar smoothing;
  private NsdManager.DiscoveryListener discovery;
  private final android.os.Handler stateHandler=new android.os.Handler(android.os.Looper.getMainLooper());
- private final Runnable stateRefresh=new Runnable(){public void run(){String s=RootSyncService.state();boolean session="starting".equals(s)||"running".equals(s);boolean recovery=RootRecovery.pending(RootAreasActivity.this);start.setEnabled(!switchingBridge&&(session||!recovery));stop.setEnabled(session||!switchingBridge&&!recovery);refreshBridgePicker();refreshIndicators(s);if("starting".equals(s))status.setText(DirectText.get(RootAreasActivity.this,"starting"));else if("running".equals(s))status.setText("");else if("recovery".equals(s))status.setText(DirectText.get(RootAreasActivity.this,"recovery"));else if("error".equals(s))status.setText(DirectText.get(RootAreasActivity.this,RootSyncService.failureKey()));else if("off".equals(s)&&!"off".equals(lastSyncState))status.setText("");lastSyncState=s;stateHandler.postDelayed(this,1000);}};
+ private final Runnable stateRefresh=new Runnable(){public void run(){String s=RootSyncService.state();boolean session=RootSyncService.sessionActive();boolean recovery=RootRecovery.pending(RootAreasActivity.this);start.setEnabled(!switchingBridge&&!session&&!recovery);stop.setEnabled(session||!switchingBridge&&!recovery);refreshBridgePicker();refreshIndicators(s);if("starting".equals(s))status.setText(DirectText.get(RootAreasActivity.this,"starting"));else if("running".equals(s)&&!"running".equals(lastSyncState))status.setText("");else if("waiting".equals(s))status.setText(DirectText.get(RootAreasActivity.this,"resume_waiting"));else if("recovery".equals(s))status.setText(DirectText.get(RootAreasActivity.this,"recovery"));else if("error".equals(s))status.setText(DirectText.get(RootAreasActivity.this,RootSyncService.failureKey()));else if("off".equals(s)&&!"off".equals(lastSyncState))status.setText("");lastSyncState=s;stateHandler.postDelayed(this,1000);}};
 
  @Override public void onCreate(Bundle state){
   super.onCreate(state);
@@ -192,8 +193,9 @@ public final class RootAreasActivity extends Activity {
    noticeParams.topMargin=Math.round(7*density);
    smoothingNotice.setLayoutParams(noticeParams);
   });
+  pairTv=new Button(this);layout.addView(pairTv);pairTv.setOnClickListener(v->pairTv());
   openLights=new Button(this);openLights.setText(DirectText.get(this,"lights_settings"));layout.addView(openLights);
-  openLights.setOnClickListener(v->{if(directBusy()){status.setText(DirectText.get(this,"busy"));return;}lightsEntry=openLights;showLights(true);});
+  openLights.setOnClickListener(v->{if(switchingBridge||directBusy()){status.setText(DirectText.get(this,"busy"));return;}lightsEntry=openLights;showLights(true);});
   start=new Button(this);start.setText(DirectText.get(this,"start"));layout.addView(start);
   Button save=new Button(this);save.setText(DirectText.get(this,"save"));lightsPanel.addView(save);
   Button lightsBack=new Button(this);lightsBack.setText(Strings.get(this,"back"));lightsPanel.addView(lightsBack);lightsBack.setOnClickListener(v->showLights(false));
@@ -201,10 +203,10 @@ public final class RootAreasActivity extends Activity {
   status=new TextView(this);status.setTextColor(Color.WHITE);layout.addView(status,new LinearLayout.LayoutParams(-1,-2));
   TextView stopHint=new TextView(this);stopHint.setText(DirectText.get(this,"stop_hint"));stopHint.setTextColor(Color.LTGRAY);stopHint.setGravity(Gravity.CENTER_HORIZONTAL);layout.addView(stopHint);
   Button back=new Button(this);back.setText(Strings.get(this,"back"));layout.addView(back);
-  for(Button button:new Button[]{load,loadLights,openLights,start,save,stop,back,lightsBack}){button.setAllCaps(false);button.setFocusableInTouchMode(true);MenuStyle.apply(button);}
+  for(Button button:new Button[]{load,loadLights,pairTv,openLights,start,save,stop,back,lightsBack}){button.setAllCaps(false);button.setFocusableInTouchMode(true);MenuStyle.apply(button);}
   airSettings.setFocusableInTouchMode(true);
-  styleActionButtons(layout,airSettings,openLights,start,stop,back);
-  actions=new Button[]{airSettings,openLights,start,stop,back};
+  styleActionButtons(layout,airSettings,pairTv,openLights,start,stop,back);
+  actions=new Button[]{airSettings,openLights,start,stop,back,pairTv};
   for(int i=0;i<actions.length;i++){final int index=i;actions[i].setOnFocusChangeListener((view,focused)->{if(focused)focusedAction=index;});}
   styleActionButtons(lightsPanel,load,loadLights,save,lightsBack);
   MenuStyle.apply(areas);
@@ -212,7 +214,7 @@ public final class RootAreasActivity extends Activity {
   load.setOnClickListener(v->loadAreas());
   start.setOnClickListener(v->startSession());
   save.setOnClickListener(v->{if(saveSelection()){smoothingNotice.setVisibility(android.view.View.INVISIBLE);showLights(false);status.setText(DirectText.get(this,"saved"));}});
-  stop.setOnClickListener(v->{String s=RootSyncService.state();if(!"starting".equals(s)&&!"running".equals(s)){status.setText(DirectText.get(this,"direct_stopped"));return;}acceptAirActivation=false;startService(new android.content.Intent(this,RootSyncService.class).setAction(RootSyncService.STOP));status.setText(DirectText.get(this,"stopping"));});
+  stop.setOnClickListener(v->{if(!RootSyncService.sessionActive()){status.setText(DirectText.get(this,"direct_stopped"));return;}acceptAirActivation=false;startService(new android.content.Intent(this,RootSyncService.class).setAction(RootSyncService.STOP));status.setText(DirectText.get(this,"stopping"));});
   back.setOnClickListener(v->onBackPressed());
   bridgePicker.setOnItemSelectedListener(new android.widget.AdapterView.OnItemSelectedListener(){
    public void onNothingSelected(android.widget.AdapterView<?> p){}
@@ -236,7 +238,10 @@ public final class RootAreasActivity extends Activity {
   boolean lights=false;
   try{lights=!mac.isEmpty()&&!new RootSyncPreferences(this,mac).loadConfiguration().isEmpty();}catch(Exception ignored){}
   boolean running="running".equals(state);
+  pairTv.setText(UiColors.marks((UiStatus.paired(this)?"✓ ":"✕ ")+SetupStrings.get(this,"tv_qr_pair")));
+  pairTv.setEnabled(!RootSyncService.sessionActive());
   airSettings.setText(UiColors.marks((configured?"✓ ":"")+DirectText.get(this,"air_setup")));
+  openLights.setEnabled(!switchingBridge&&!directBusy());
   openLights.setText(UiColors.marks((lights?"✓ ":"")+DirectText.get(this,"lights_settings")));
   start.setText(UiColors.marks((running?"✓ ":"")+DirectText.get(this,"start")));
   bridgeStatus.setText(DirectText.get(this,"bridge_ip")+": "+DirectBridgeProfiles.current(this).getString("host",""));
@@ -250,7 +255,7 @@ public final class RootAreasActivity extends Activity {
   else {lightsPanel.removeView(status);mainPanel.addView(status);screen.removeView(lightsPanel);screen.addView(mainPanel);Button target=lightsEntry;mainPanel.post(()->{if(target!=null)target.requestFocus();else restoreMainFocus();});}
  }
  @Override public void onBackPressed(){acceptAirActivation=false;if(lightsPanel.getParent()==screen)showLights(false);else super.onBackPressed();}
- private boolean directBusy(){String s=RootSyncService.state();return "starting".equals(s)||"running".equals(s)||RootSessionGate.busy()||RootRecovery.pending(this);}
+ private boolean directBusy(){return RootSyncService.sessionActive()||RootSessionGate.busy()||RootRecovery.pending(this);}
  private void refreshBridgePicker(){bridgePicker.setEnabled(!switchingBridge&&!directBusy());}
  private void restoreBridgeSelection(){
   String mac=DirectBridgeProfiles.current(this).getString("mac","");
@@ -265,8 +270,6 @@ public final class RootAreasActivity extends Activity {
    Exception problem=null;
    try{
     DirectProfileGuard.select(this::directBusy,()->{
-     String pin=getSharedPreferences("bridge_tls",0).getString(target.host,"");
-     if(!pin.matches("[a-f0-9]{64}"))throw new java.io.IOException("Saved bridge certificate unavailable");
      HueEntertainmentApi api=new HueEntertainmentApi(this,target.host,target.token);
      api.verifyBridge(target.mac);api.legacyLights();api.areas();
     },()->DirectBridgeProfiles.save(this,target));
@@ -403,7 +406,7 @@ public final class RootAreasActivity extends Activity {
   show(DirectText.get(this,"pair_prompt"));
   worker.execute(()->{
    try{
-    BridgeTransport transport=new BridgeTransport(this);
+    BridgeTransport transport=new BridgeTransport(this,true);
     HttpURLConnection config=transport.open(host,"/api/config");
     if(!(config instanceof HttpsURLConnection)){config.disconnect();throw new java.io.IOException("HTTPS required");}
     JSONObject info=new JSONObject(response(config));
@@ -434,7 +437,9 @@ public final class RootAreasActivity extends Activity {
   String host=prefs.getString("host",""),key=prefs.getString("token","");
   worker.execute(()->{
    try{
-    JSONArray data=new HueEntertainmentApi(this,host,key).areas();
+    HueEntertainmentApi api=new HueEntertainmentApi(this,host,key);
+    api.verifyBridge(prefs.getString("mac",""));
+    JSONArray data=api.areas();
     ArrayList<String> ids=new ArrayList<>(),names=new ArrayList<>();
     for(int i=0;i<data.length();i++){
      JSONObject area=data.getJSONObject(i);
@@ -457,7 +462,7 @@ public final class RootAreasActivity extends Activity {
   });
  }
  private boolean saveSelection(){
-  if(active||switchingBridge||!"off".equals(RootSyncService.state())&&!"error".equals(RootSyncService.state())){status.setText(DirectText.get(this,"busy"));return false;}
+  if(active||switchingBridge||RootSyncService.sessionActive()||"recovery".equals(RootSyncService.state())){status.setText(DirectText.get(this,"busy"));return false;}
   if(areas.getSelectedItemPosition()<0||areas.getSelectedItemPosition()>=areaIds.size()){status.setText(DirectText.get(this,"area"));return false;}
   final String area=areaIds.get(areas.getSelectedItemPosition());
   if(!area.equals(loadedLightArea)){status.setText(DirectText.get(this,"lights"));return false;}
@@ -480,7 +485,32 @@ public final class RootAreasActivity extends Activity {
        showLights(true);
       }).show();
  }
+ private void pairTv(){
+  if(RootSyncService.sessionActive())return;
+  if(UiStatus.paired(this)){
+   new android.app.AlertDialog.Builder(this).setMessage(SetupStrings.get(this,"tv_qr_again"))
+       .setNegativeButton(Strings.get(this,"cancel"),null)
+       .setPositiveButton(android.R.string.ok,(d,w)->openPairing()).show();
+  }else openPairing();
+ }
+ private void openPairing(){
+  startActivityForResult(new android.content.Intent(this,QrPairingActivity.class),PAIR_TV);
+ }
+ @Override protected void onActivityResult(int request,int result,android.content.Intent data){
+  super.onActivityResult(request,result,data);
+  if(request!=PAIR_TV)return;
+  String message=data==null?null:data.getStringExtra("message");
+  status.setText(SetupStrings.get(this,message==null?"tv_qr_cancelled":message));
+  refreshIndicators(RootSyncService.state());
+ }
  private void startSession(){
+  if(RootSyncService.sessionActive()){status.setText(DirectText.get(this,"busy"));return;}
+  if(!UiStatus.paired(this)){
+   new android.app.AlertDialog.Builder(this).setMessage(DirectText.get(this,"tv_pair_required"))
+       .setNegativeButton(Strings.get(this,"cancel"),null)
+       .setPositiveButton(SetupStrings.get(this,"tv_qr_pair"),(d,w)->openPairing()).show();
+   return;
+  }
   if(RootRecovery.pending(this)){startActivity(new android.content.Intent(this,RootRecoveryActivity.class));return;}
   if(directBusy()){status.setText(DirectText.get(this,"busy"));return;}
   SharedPreferences selected=DirectBridgeProfiles.current(this);
@@ -506,6 +536,7 @@ public final class RootAreasActivity extends Activity {
    }
   });
   startForegroundService(startRequest);
+  openLights.setEnabled(false);
   bridgePicker.setEnabled(false);
   status.setText(DirectText.get(this,"starting"));
  }

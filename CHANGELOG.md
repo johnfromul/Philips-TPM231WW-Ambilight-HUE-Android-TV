@@ -1,5 +1,16 @@
 # Changelog
 
+## 1.15-test2 (development preview)
+
+- Require HTTPS for Direct Sync and make HTTPS the default in the Bridge pairing dialog.
+- Show TV pairing in Direct Sync and offer QR pairing when authorization is missing.
+- Disable Light settings during Direct Sync and show network details on the main screen.
+- Offer to open the Philips Air settings after wiping app settings, with localized reset instructions.
+- Restore Direct Sync after standby or reboot and restore native Hue after reboot when its saved switch is on.
+- Cover all added app text in Czech, English, German, French, Spanish and Polish.
+
+See the [release notes and OLED909 test results](docs/RELEASE-1.15-test2.md).
+
 ## 1.14z (development preview)
 
 See the [1.14z release notes](docs/RELEASE-1.14z.md) for local Air pairing, QR TV pairing, backup and the update checker.

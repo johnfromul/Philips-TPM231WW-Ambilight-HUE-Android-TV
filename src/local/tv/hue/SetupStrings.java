@@ -18,6 +18,30 @@ final class SetupStrings {
   TEXT.put("backup_export",new String[]{"Záloha","Backup","Sichern","Sauvegarder","Crear copia","Utwórz kopię"});
   TEXT.put("backup_import",new String[]{"Obnova","Restore","Wiederherstellen","Restaurer","Restaurar","Przywróć"});
   TEXT.put("backup_wipe",new String[]{"Smazání","Wipe","Löschen","Effacer","Borrar","Usuń"});
+  TEXT.put("backup_air_option",new String[]{
+   "Po smazání otevřít nastavení Ambilight Air",
+   "Open Ambilight Air settings after wiping",
+   "Nach dem Löschen die Ambilight-Air-Einstellungen öffnen",
+   "Ouvrir les réglages Ambilight Air après l’effacement",
+   "Abrir los ajustes de Ambilight Air después de borrar",
+   "Po usunięciu otwórz ustawienia Ambilight Air"
+  });
+  TEXT.put("backup_air_hint",new String[]{
+   "Pokud zaškrtnete volbu Ambilight Air, po smazání nastavení aplikace v otevřeném panelu Air zvolte „Resetovat konfiguraci“ a potvrďte.",
+   "If you select the Ambilight Air option, choose “Reset configuration” in the Air settings that open after the app settings are erased, then confirm.",
+   "Wenn Sie die Ambilight-Air-Option auswählen, wählen Sie nach dem Löschen der App-Einstellungen im geöffneten Menü „Konfiguration zurücksetzen“ und bestätigen Sie.",
+   "Si vous cochez l’option Ambilight Air, choisissez « Réinitialiser la configuration » dans les réglages qui s’ouvrent après l’effacement des réglages de l’application, puis confirmez.",
+   "Si marcas la opción Ambilight Air, selecciona «Restablecer configuración» en los ajustes que se abren al borrar los de la aplicación y confirma.",
+   "Jeśli zaznaczysz opcję Ambilight Air, po usunięciu ustawień aplikacji wybierz „Resetuj konfigurację” w otwartym menu Air i potwierdź."
+  });
+  TEXT.put("backup_air_unavailable",new String[]{
+   "Nastavení aplikace bylo smazáno. Nastavení Ambilight Air se nepodařilo otevřít.",
+   "App settings were erased. Ambilight Air settings could not be opened.",
+   "Die App-Einstellungen wurden gelöscht. Die Ambilight-Air-Einstellungen konnten nicht geöffnet werden.",
+   "Les réglages de l’application ont été effacés. Impossible d’ouvrir les réglages Ambilight Air.",
+   "Se borraron los ajustes de la aplicación. No se pudieron abrir los ajustes de Ambilight Air.",
+   "Ustawienia aplikacji zostały usunięte. Nie udało się otworzyć ustawień Ambilight Air."
+  });
   TEXT.put("backup_browse",new String[]{"Vybrat jiný soubor…","Browse for another file…","Andere Datei auswählen…","Choisir un autre fichier…","Elegir otro archivo…","Wybierz inny plik…"});
   TEXT.put("backup_confirm_import",new String[]{"Nahradit současné nastavení vybranou zálohou?","Replace the current settings with the selected backup?","Aktuelle Einstellungen durch die ausgewählte Sicherung ersetzen?","Remplacer les réglages actuels par la sauvegarde sélectionnée ?","¿Sustituir los ajustes actuales por la copia seleccionada?","Zastąpić bieżące ustawienia wybraną kopią?"});
   TEXT.put("backup_confirm_wipe",new String[]{"Smazat nastavení a párování aplikace? Soubory záloh zůstanou uložené.","Erase the app settings and pairing data? Backup files will be kept.","App-Einstellungen und Kopplungsdaten löschen? Sicherungsdateien bleiben erhalten.","Effacer les réglages et les associations de l’application ? Les sauvegardes seront conservées.","¿Borrar los ajustes y la vinculación de la aplicación? Se conservarán las copias.","Usunąć ustawienia i dane parowania aplikacji? Pliki kopii zostaną zachowane."});

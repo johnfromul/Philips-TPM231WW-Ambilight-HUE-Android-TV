@@ -114,7 +114,7 @@ public class LightsActivity extends Activity {
   findBridge=button(prefs.getBoolean("discovery_searched",false)?FeatureStrings.get(this,"discover_again"):Strings.get(this,"discover"),this::discover);
   hostInput.setImeOptions(android.view.inputmethod.EditorInfo.IME_ACTION_DONE);
   hostInput.setOnEditorActionListener((v,action,event)->{if(action==android.view.inputmethod.EditorInfo.IME_ACTION_DONE||(event!=null&&event.getKeyCode()==android.view.KeyEvent.KEYCODE_ENTER)){android.view.inputmethod.InputMethodManager keyboard=(android.view.inputmethod.InputMethodManager)getSystemService(INPUT_METHOD_SERVICE);if(keyboard!=null)keyboard.hideSoftInputFromWindow(v.getWindowToken(),0);v.clearFocus();findBridge.requestFocus();return true;}return false;});
-  bridgePairButton=button(SetupStrings.get(this,"pair"),() -> load(true));
+  bridgePairButton=button(SetupStrings.get(this,"pair"),this::chooseBridgePairTransport);
   appPairButton=button(SetupStrings.get(this,"tv_qr_pair"),this::pairApp);
   button(Strings.get(this,"load"),() -> load(false));
   button(Strings.get(this,"back"),this::back);
@@ -152,6 +152,17 @@ public class LightsActivity extends Activity {
   pairSummary.setText(UiColors.summary(this,FeatureStrings.get(this,"bridge")+": "+(hostInput==null?"":hostInput.getText().toString())
       +"\n"+SetupStrings.get(this,"pair")+": "+(bridge?"✓ "+FeatureStrings.get(this,"stored"):"✕ "+FeatureStrings.get(this,"not_ready"))
       +"\n"+FeatureStrings.get(this,"tv_pairing")+": "+(app?"✓ "+FeatureStrings.get(this,"stored"):"✕ "+FeatureStrings.get(this,"not_ready"))));
+ }
+ private void chooseBridgePairTransport(){
+  if(busy)return;
+  AlertDialog dialog=new AlertDialog.Builder(this).setTitle(SetupStrings.get(this,"pair"))
+      .setMessage(DirectText.get(this,"pair_https_hint"))
+      .setNegativeButton(Strings.get(this,"cancel"),null)
+      .setNeutralButton(DirectText.get(this,"legacy_pair"),(d,w)->{bridgeTransport=new BridgeTransport(this);load(true);})
+      .setPositiveButton("HTTPS",(d,w)->{bridgeTransport=new BridgeTransport(this,true);load(true);})
+      .create();
+  dialog.setOnShowListener(d->dialog.getButton(AlertDialog.BUTTON_POSITIVE).requestFocus());
+  dialog.show();
  }
  private void pairApp(){
   if(UiStatus.paired(this)){
@@ -218,7 +229,7 @@ public class LightsActivity extends Activity {
   if(busy)return;busy=true;for(Button b:controls)b.setEnabled(false);if(hostInput!=null)hostInput.setEnabled(false);status.setText(message);
   worker.execute(() -> {
    String id=Diagnostics.id();diagnosticId.set(id);Diagnostics.event(id,"lights.task.begin","");Diagnostics.network(this,id);
-   try {work.run();Diagnostics.event(id,"lights.task.ok","");}catch(Exception e){Diagnostics.error(id,"lights.task.error",e);ui(() -> status.setText(Strings.get(this,"operation_failed",id)));}
+   try {work.run();Diagnostics.event(id,"lights.task.ok","");}catch(Exception e){Diagnostics.error(id,"lights.task.error",e);ui(() -> status.setText(bridgeTransport.requiresHttps()&&(e instanceof ConnectException||e instanceof NoRouteToHostException||e instanceof javax.net.ssl.SSLException)?DirectText.get(this,"https_unavailable")+" ("+id+")":Strings.get(this,"operation_failed",id)));}
    finally {Diagnostics.event(id,"lights.task.end","");diagnosticId.remove();ui(() -> {stopCountdown();for(Button b:controls)b.setEnabled(true);if(hostInput!=null)hostInput.setEnabled(true);busy=false;});}
   });
  }

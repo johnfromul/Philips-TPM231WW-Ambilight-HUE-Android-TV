@@ -23,7 +23,7 @@ final class HueEntertainmentApi implements EntertainmentLease.Bridge {
  private String applicationId;
  HueEntertainmentApi(Context activity,String host,String applicationKey){
   if(host==null||!host.matches("[0-9]{1,3}(\\.[0-9]{1,3}){3}")||applicationKey==null||!applicationKey.matches("[A-Za-z0-9_-]{8,128}"))throw new IllegalArgumentException("Invalid Bridge credentials");
-  this.host=host;this.applicationKey=applicationKey;transport=new BridgeTransport(activity);
+  this.host=host;this.applicationKey=applicationKey;transport=new BridgeTransport(activity,true);
  }
  String applicationId() throws Exception {
   if(applicationId!=null)return applicationId;
@@ -155,7 +155,8 @@ final class HueEntertainmentApi implements EntertainmentLease.Bridge {
   HttpURLConnection c=transport.open(host,path);
   if(!(c instanceof HttpsURLConnection)){c.disconnect();throw new IOException("Entertainment requires HTTPS and trusted Bridge certificate");}
   c.setConnectTimeout(6000);c.setReadTimeout(8000);c.setInstanceFollowRedirects(false);
-  c.setRequestProperty("hue-application-key",applicationKey);c.setRequestProperty("Accept","application/json");return c;
+  if(!"/api/config".equals(path))c.setRequestProperty("hue-application-key",applicationKey);
+  c.setRequestProperty("Accept","application/json");return c;
  }
  private JSONObject request(String method,String path,String body)throws Exception {
   HttpURLConnection c=open(path);

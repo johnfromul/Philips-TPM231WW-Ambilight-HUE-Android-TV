@@ -3,6 +3,14 @@ import android.content.Context;import java.util.*;
 final class FeatureStrings {
  static final Map<String,String[]> TEXT=new HashMap<>();static{
   TEXT.put("native_mode",new String[]{"nativní režim","native mode","nativer Modus","mode natif","modo nativo","tryb natywny"});
+  TEXT.put("native_resume",new String[]{
+   "Obnovení nativní synchronizace Hue",
+   "Resuming native Hue synchronization",
+   "Native Hue-Synchronisierung wird fortgesetzt",
+   "Reprise de la synchronisation Hue native",
+   "Reanudando la sincronización nativa de Hue",
+   "Wznawianie natywnej synchronizacji Hue"
+  });
   TEXT.put("tv_pairing",new String[]{"Spárování aplikace s TV","App pairing with TV","App-Kopplung mit dem TV","Association de l’application au TV","Vinculación de la aplicación con el TV","Parowanie aplikacji z telewizorem"});
   TEXT.put("ambilight",new String[]{"Ambilight TV","TV Ambilight","TV-Ambilight","Ambilight du TV","Ambilight del TV","Ambilight TV"});
   TEXT.put("discover_again",new String[]{"Znovu vyhledat můstky","Search again for bridges","Erneut nach Hue-Bridges suchen","Rechercher à nouveau les ponts","Volver a buscar puentes","Wyszukaj mostki ponownie"});

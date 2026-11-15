@@ -3,11 +3,13 @@ import android.app.*;import android.content.*;import android.os.*;import java.ne
 
 /** Per-session HTTPS preference; explicit first-use certificate trust before credentials. */
 final class BridgeTransport {
- private final Context context;private final Activity activity;private final SharedPreferences trust;
+ private final boolean requireHttps; private final Context context;private final Activity activity;private final SharedPreferences trust;
  private final Map<String,String> schemes=new HashMap<>(),observed=new HashMap<>();private final Set<String> legacyVerified=new HashSet<>();
- BridgeTransport(Context c){context=c.getApplicationContext();activity=c instanceof Activity?(Activity)c:null;trust=c.getSharedPreferences("bridge_tls",0);}
+ BridgeTransport(Context c){this(c,false);}
+ BridgeTransport(Context c,boolean requireHttps){this.requireHttps=requireHttps;context=c.getApplicationContext();activity=c instanceof Activity?(Activity)c:null;trust=c.getSharedPreferences("bridge_tls",0);}
+ boolean requiresHttps(){return requireHttps;}
  private String scheme(String host)throws Exception{
-  if(!trust.getString(host,"").isEmpty())return "https";
+  if(requireHttps||!trust.getString(host,"").isEmpty())return "https";
   if(schemes.containsKey(host))return schemes.get(host);
   try(Socket socket=new Socket()){try{socket.connect(new InetSocketAddress(host,443),2000);}catch(ConnectException|SocketTimeoutException e){schemes.put(host,"http");return "http";}}
   schemes.put(host,"https");return "https";

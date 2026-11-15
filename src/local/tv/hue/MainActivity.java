@@ -13,13 +13,14 @@ import android.widget.TextView;
 public class MainActivity extends Activity {
  private String initialLanguage;
  @Override protected void attachBaseContext(android.content.Context base){initialLanguage=base.getSharedPreferences("app_language",0).getString("language","");super.attachBaseContext(AppLanguage.wrap(base));}
- private TextView status;
+ private TextView status,deviceDetails;
+ private String deviceFirmware,deviceModel,deviceUnavailable;
  private TextView stateSummary;private Button onButton,offButton;private long statusGeneration;
  private boolean statusReading;
  private String previousSyncState="";
  private int focusedButton;
  private final android.os.Handler refreshHandler=new android.os.Handler(android.os.Looper.getMainLooper());
- private final Runnable refreshTick=new Runnable(){public void run(){refreshStatus();refreshHandler.postDelayed(this,5000);}};
+ private final Runnable refreshTick=new Runnable(){public void run(){refreshDeviceDetails();refreshStatus();refreshHandler.postDelayed(this,5000);}};
  private boolean busy;
  private static final int WIZARD_REQUEST=104;
  private String wizardPriorPower="";
@@ -92,10 +93,36 @@ public class MainActivity extends Activity {
   String firmwareLabel="cs".equals(lang)?"Verze firmwaru":"de".equals(lang)?"Firmware-Version":"fr".equals(lang)?"Version du firmware":"es".equals(lang)?"Versión de firmware":"pl".equals(lang)?"Wersja oprogramowania":"Firmware version";
   String modelLabel="cs".equals(lang)?"Model zařízení":"de".equals(lang)?"Gerätemodell":"fr".equals(lang)?"Modèle":"es".equals(lang)?"Modelo":"pl".equals(lang)?"Model urządzenia":"Device model";
   String unavailable="cs".equals(lang)?"nedostupné":"de".equals(lang)?"nicht verfügbar":"fr".equals(lang)?"indisponible":"es".equals(lang)?"no disponible":"pl".equals(lang)?"niedostępne":"unavailable";
-  TextView device=new TextView(this);device.setText(firmwareLabel+": "+(firmware.isEmpty()?unavailable:firmware)+"\n"+modelLabel+": "+(model==null||model.isEmpty()?unavailable:model));device.setTextColor(Color.LTGRAY);device.setTextSize(12);device.setGravity(android.view.Gravity.END);device.setPadding(24,4,24,12);
+  deviceFirmware=firmwareLabel+": "+(firmware.isEmpty()?unavailable:firmware);
+  deviceModel=modelLabel+": "+(model==null||model.isEmpty()?unavailable:model);
+  deviceUnavailable=unavailable;
+  TextView device=deviceDetails=new TextView(this);device.setTextColor(Color.LTGRAY);device.setTextSize(12);device.setGravity(android.view.Gravity.END);device.setPadding(24,4,24,12);
+  refreshDeviceDetails();
   footer.addView(device,new LinearLayout.LayoutParams(0,-2,1));screen.addView(footer,new LinearLayout.LayoutParams(-1,-2));
   setContentView(screen); restoreMenuFocus();
   command(getIntent());
+ }
+ private void refreshDeviceDetails(){
+  if(deviceDetails==null)return;
+  String ip=deviceUnavailable,mac=deviceUnavailable;
+  try{
+   android.net.ConnectivityManager connectivity=getSystemService(android.net.ConnectivityManager.class);
+   android.net.LinkProperties links=connectivity.getLinkProperties(connectivity.getActiveNetwork());
+   if(links!=null){
+    for(android.net.LinkAddress link:links.getLinkAddresses()){
+     if(link.getAddress() instanceof java.net.Inet4Address){ip=link.getAddress().getHostAddress();break;}
+    }
+    if(links.getInterfaceName()!=null){
+     java.net.NetworkInterface network=java.net.NetworkInterface.getByName(links.getInterfaceName());
+     byte[] address=network==null?null:network.getHardwareAddress();
+     if(address!=null&&address.length==6){
+      String value=String.format(java.util.Locale.ROOT,"%02X:%02X:%02X:%02X:%02X:%02X",address[0],address[1],address[2],address[3],address[4],address[5]);
+      if(!"02:00:00:00:00:00".equals(value)&&!"00:00:00:00:00:00".equals(value))mac=value;
+     }
+    }
+   }
+  }catch(RuntimeException|java.net.SocketException ignored){}
+  deviceDetails.setText(deviceFirmware+"\n"+deviceModel+"\nIP: "+ip+"  ·  MAC: "+mac);
  }
  private static String readProperty(String key){Process process=null;try{process=new ProcessBuilder("/system/bin/getprop",key).start();if(!process.waitFor(1,java.util.concurrent.TimeUnit.SECONDS))return "";byte[] b=new byte[256];int n=process.getInputStream().read(b);return n<0?"":new String(b,0,n,"UTF-8").trim();}catch(Exception e){return "";}finally{if(process!=null)process.destroy();}}
  private void advanced(){new AlertDialog.Builder(this).setTitle(FeatureStrings.get(this,"advanced")).setItems(new String[]{SetupStrings.get(this,"native_wizard"),AppUpdates.label(this,"check"),SetupStrings.get(this,"backup_menu"),FeatureStrings.get(this,"identity_title"),DirectText.get(this,"option")},(d,item)->{
@@ -105,7 +132,7 @@ public class MainActivity extends Activity {
   else if(item==3)new AlertDialog.Builder(this).setMessage(FeatureStrings.get(this,"identity")).setPositiveButton("OK",null).show();
   else startActivity(new Intent(this,RootAreasActivity.class));
  }).setNegativeButton(Strings.get(this,"back"),null).show();}
- private boolean directBusy(){String s=RootSyncService.state();return "starting".equals(s)||"running".equals(s)||RootSessionGate.busy()||RootRecovery.pending(this);}
+ private boolean directBusy(){return RootSyncService.sessionActive()||RootSessionGate.busy()||RootRecovery.pending(this);}
  private void openNativeWizard(){
   if(directBusy()){status.setText(DirectText.get(this,"busy"));return;}
   if(busy)return;busy=true;for(Button b:buttons)b.setEnabled(false);
@@ -114,9 +141,9 @@ public class MainActivity extends Activity {
  @Override protected void onActivityResult(int request,int result,Intent data){super.onActivityResult(request,result,data);if(request!=WIZARD_REQUEST||wizardPriorPower.isEmpty())return;String prior=wizardPriorPower;wizardPriorPower="";long token=generation.incrementAndGet();busy=true;for(Button b:buttons)b.setEnabled(false);apiWorker.execute(()->{try{restoreWizardPower(prior,token);for(int seconds:new int[]{3,7,12,20})observer.schedule(()->{if(generation.get()!=token)return;try{restoreWizardPower(prior,token);}catch(Exception e){Diagnostics.error("wizard","wizard.recheck.error",e);}},seconds,java.util.concurrent.TimeUnit.SECONDS);}catch(Exception e){String id=Diagnostics.id();Diagnostics.error(id,"wizard.restore.error",e);runOnUiThread(()->status.setText(Strings.get(this,"request_failed",e.getClass().getSimpleName(),id)));}finally{runOnUiThread(()->{if(isDestroyed())return;busy=false;for(Button b:buttons)b.setEnabled(true);refreshStatus();});}});}
  private void restoreWizardPower(String prior,long token)throws Exception{if(generation.get()!=token)return;TvApiClient api=new TvApiClient(this);String current=api.getPower();if(!prior.equals(current)&&generation.get()==token){String id=Diagnostics.id();Diagnostics.event(id,"wizard.restore.begin","desired="+prior+" observed="+current);api.setPower("On".equals(prior),()->notifyNative("On".equals(prior),id));Diagnostics.event(id,"wizard.restore.complete","desired="+prior);}}
 
- private String directSummary(){String s=RootSyncService.state();if("starting".equals(s))return "\n"+DirectText.get(this,"starting");if("running".equals(s))return "\n"+DirectText.get(this,"running");if("recovery".equals(s))return "\n"+DirectText.get(this,"recovery");return "";}
+ private String directSummary(){String s=RootSyncService.state();if("starting".equals(s))return "\n"+DirectText.get(this,"starting");if("waiting".equals(s))return "\n"+DirectText.get(this,"resume_waiting");if("running".equals(s))return "\n"+DirectText.get(this,"running");if("recovery".equals(s))return "\n"+DirectText.get(this,"recovery");return "";}
  private void refreshStatus(){if(busy||statusReading||isDestroyed())return;statusReading=true;long token=++statusGeneration;statusWorker.execute(()->{String power=FeatureStrings.get(this,"unknown");if(UiStatus.paired(this))try{power=new TvApiClient(this).getPower();}catch(Exception e){Diagnostics.error("status","power.read.failed",e);}String ambilight=FeatureStrings.get(this,"unknown"),ambilightObserved="unknown";if(UiStatus.paired(this))try{String al=new TvApiClient(this).getAmbilightPower();ambilightObserved=al;ambilight="On".equals(al)?"✓ "+FeatureStrings.get(this,"state_on"):"Off".equals(al)?"✕ "+FeatureStrings.get(this,"state_off"):ambilight;}catch(Exception e){Diagnostics.error("status","ambilight.read.failed",e);}String value=power;String nativeState=UiStatus.nativeActiveValue();String snapshot=value+"/"+nativeState+"/"+ambilightObserved;if(!snapshot.equals(previousSyncState)){previousSyncState=snapshot;Diagnostics.event("status","sync.state.changed","saved="+value+" native_active="+nativeState+" ambilight="+ambilightObserved);}String summary=FeatureStrings.get(this,"bridge")+": "+UiStatus.configuredBridge(this)+"\n"+FeatureStrings.get(this,"tv_pairing")+": "+(UiStatus.paired(this)?"✓ "+FeatureStrings.get(this,"stored"):"✕ "+FeatureStrings.get(this,"not_ready"))+"\n"+FeatureStrings.get(this,"switch")+": "+("On".equals(value)?FeatureStrings.get(this,"state_on"):"Off".equals(value)?FeatureStrings.get(this,"state_off"):value)+"\n"+FeatureStrings.get(this,"ambilight")+": "+ambilight+"\n"+UiStatus.nativeActiveLabel(this,nativeState)+directSummary();runOnUiThread(()->{statusReading=false;if(isDestroyed()||busy||token!=statusGeneration)return;stateSummary.setText(UiColors.summary(this,summary));onButton.setText(UiColors.marks(("On".equals(value)?"✓ ":"")+Strings.get(this,"on")));offButton.setText(UiColors.marks(("Off".equals(value)?"✓ ":"")+Strings.get(this,"off")));onButton.setTextColor("On".equals(value)?UiColors.GREEN:Color.WHITE);offButton.setTextColor("Off".equals(value)?UiColors.RED:Color.WHITE);});});}
- @Override protected void onResume(){super.onResume();if(!initialLanguage.equals(getSharedPreferences("app_language",0).getString("language",""))){recreate();return;}if(RootRecovery.pending(this)&&!RootSessionGate.busy()){startActivity(new Intent(this,RootRecoveryActivity.class));return;}restoreMenuFocus();refreshStatus();refreshHandler.removeCallbacks(refreshTick);refreshHandler.postDelayed(refreshTick,5000);}
+ @Override protected void onResume(){super.onResume();refreshDeviceDetails();if(!initialLanguage.equals(getSharedPreferences("app_language",0).getString("language",""))){recreate();return;}if(RootRecovery.pending(this)&&!RootSessionGate.busy()){startActivity(new Intent(this,RootRecoveryActivity.class));return;}restoreMenuFocus();refreshStatus();refreshHandler.removeCallbacks(refreshTick);refreshHandler.postDelayed(refreshTick,5000);}
  @Override protected void onPause(){refreshHandler.removeCallbacks(refreshTick);super.onPause();}
  private void restoreMenuFocus(){final int target=focusedButton;getWindow().getDecorView().post(()->{if(!busy&&target>=0&&target<buttons.size()){buttons.get(target).requestFocus();}});}
  @Override protected void onSaveInstanceState(Bundle state){super.onSaveInstanceState(state);state.putInt("focused_button",focusedButton);state.putString("wizard_prior_power",wizardPriorPower);}

@@ -19,6 +19,8 @@ import java.util.concurrent.atomic.AtomicBoolean;
 /** Owns a single synchronization session independently of the setup screen. */
 public final class RootSyncService extends Service {
  static final String START="local.tv.hue.root.START", STOP="local.tv.hue.root.STOP";
+ static final String RESUME="local.tv.hue.root.RESUME";
+ static final String RESUME_PREFS="direct_resume";
  static final String AIR_ACTIVATION="local.tv.hue.root.AIR_ACTIVATION";
  private static volatile String state="off";
  private static volatile boolean usingAir;
@@ -28,6 +30,15 @@ public final class RootSyncService extends Service {
  private Thread worker;
 
  static String state(){return state;}
+ static boolean sessionActive(){return "starting".equals(state)||"running".equals(state)||"waiting".equals(state);}
+ static boolean resumeRequested(android.content.Context context){
+  return context.getSharedPreferences(RESUME_PREFS,0).getBoolean("requested",false);
+ }
+ private synchronized void rememberResume(boolean requested){
+  if(requested&&stopRequested.get())return;
+  if(!getSharedPreferences(RESUME_PREFS,0).edit().putBoolean("requested",requested).commit())
+   Diagnostics.event("direct","direct.resume.preference_failed","requested="+requested);
+ }
  static boolean airEnabledInferred(){
   AirStatusMonitor monitor=airStatus;
   return "running".equals(state)&&monitor!=null&&monitor.confirmed();
@@ -38,11 +49,14 @@ public final class RootSyncService extends Service {
   String action=intent==null?"":intent.getAction();
   if(STOP.equals(action)){
    stopRequested.set(true);
+   rememberResume(false);
    if(worker==null)stopSelf();
    return START_NOT_STICKY;
   }
-  if(!START.equals(action)){stopSelf();return START_NOT_STICKY;}
-  if(worker!=null)return START_NOT_STICKY;
+  boolean manual=START.equals(action);
+  boolean resume=(intent==null||RESUME.equals(action))&&resumeRequested(this);
+  if(!manual&&!resume){if(worker==null)stopSelf();return START_NOT_STICKY;}
+  if(worker!=null)return START_STICKY;
   NotificationManager notifications=(NotificationManager)getSystemService(NOTIFICATION_SERVICE);
   String channel="root_sync";
   android.content.Context localized=AppLanguage.wrap(this);
@@ -53,10 +67,10 @@ public final class RootSyncService extends Service {
    .setContentTitle("Ambilight + Hue").setContentText(DirectText.get(localized,"option")).setContentIntent(pending).setOngoing(true).build();
   startForeground(4201,notification);
   stopRequested.set(false);failureKey="sync_failed";state="starting";
-  ResultReceiver activation=intent.getParcelableExtra(AIR_ACTIVATION);
-  worker=new Thread(()->runSession(activation),"root-sync");
+  ResultReceiver activation=manual?intent.getParcelableExtra(AIR_ACTIVATION):null;
+  worker=new Thread(()->runRequestedSession(resume,activation),"root-sync");
   worker.start();
-  return START_NOT_STICKY;
+  return START_STICKY;
  }
  private final class AirStatusMonitor implements Runnable {
   private final HueEntertainmentApi api;
@@ -162,7 +176,50 @@ public final class RootSyncService extends Service {
   }
  }
 
- private void runSession(ResultReceiver activation){
+ private boolean interactive(){
+  return getSystemService(android.os.PowerManager.class).isInteractive();
+ }
+ private void runRequestedSession(boolean resume,ResultReceiver activation){
+  int attempts=0;
+  try {
+   while(!stopRequested.get()){
+    if(resume){
+     if(!interactive()){
+      state="waiting";
+      attempts=0;
+      Thread.sleep(2000);
+      continue;
+     }
+     state="starting";
+     if(RootRecovery.pending(this)){
+      try{new RootRecovery(this).run();}
+      catch(Exception e){
+       Diagnostics.error("direct","direct.resume.recovery_error",e);
+       if(++attempts>=6){state="recovery";failureKey="recovery";break;}
+       state="waiting";Thread.sleep(5000);continue;
+      }
+     }
+     if(stopRequested.get())break;
+     Diagnostics.event("direct","direct.resume.attempt","attempt="+(attempts+1));
+    }
+    String reason=runSession(resume?null:activation);
+    if(stopRequested.get())break;
+    if("screen_not_interactive".equals(reason)||!interactive()&&resumeRequested(this)){
+     resume=true;attempts=0;continue;
+    }
+    if(!resume||"native_sync_enabled".equals(reason)||!UiStatus.paired(this)||++attempts>=6)break;
+    state="waiting";
+    Thread.sleep(5000);
+   }
+  }catch(InterruptedException e){Thread.currentThread().interrupt();}
+  finally{
+   if(!stopRequested.get())rememberResume(false);
+   if(RootRecovery.pending(this)){state="recovery";failureKey="recovery";}
+   else if(!"error".equals(state))state="off";
+   new android.os.Handler(getMainLooper()).post(()->{worker=null;stopSelf();});
+  }
+ }
+ private String runSession(ResultReceiver activation){
   RootSyncEngine engine=null;
   Thread monitorThread=null;
   Thread airStatusThread=null;
@@ -174,7 +231,11 @@ public final class RootSyncService extends Service {
    if(RootRecovery.pending(this))throw new IllegalStateException("Recovery required");
    DirectBridgeProfiles.migrate(this);SharedPreferences prefs=DirectBridgeProfiles.current(this);
    String host=prefs.getString("host",""),key=prefs.getString("token",""),client=prefs.getString("clientkey",""),bridge=prefs.getString("mac","");
-   stage="native_sync";if(!"Off".equals(new TvApiClient(this).getPower()))throw new IllegalStateException("Native synchronization is active or unavailable");
+   stage="tv_pair";if(!UiStatus.paired(this))throw new IllegalStateException("TV API pairing is missing");
+   stage="native_sync";
+   String nativePower=new TvApiClient(this).getPower();
+   if("On".equals(nativePower)){failureKey="native_off";state="error";stopReason="native_sync_enabled";return stopReason;}
+   if(!"Off".equals(nativePower))throw new IllegalStateException("Native synchronization is unavailable");
    stage="tv_ambilight";if(!"On".equals(new TvApiClient(this).getAmbilightPower()))throw new IllegalStateException("TV Ambilight is off or unavailable");
    RootSyncPreferences saved=new RootSyncPreferences(this,bridge);
    stage="lights_configuration";
@@ -199,6 +260,7 @@ public final class RootSyncService extends Service {
    if(!stopRequested.get()){
     stage="engine_start";
     engine.start();
+    rememberResume(true);
     Diagnostics.event(diagnosticId,"direct.session.started","lights="+lamps.size());
     state="running";
     if(source instanceof AmbilightAirSource){
@@ -213,7 +275,7 @@ public final class RootSyncService extends Service {
     monitorThread=new Thread(monitor,"direct-tv-status");
     monitorThread.start();
     while(!stopRequested.get()){
-     if(!((android.os.PowerManager)getSystemService(POWER_SERVICE)).isInteractive()){stopReason="screen_not_interactive";break;}
+     if(!interactive()){stopReason="screen_not_interactive";break;}
      String statusStop=monitor.stopReason();
      if(statusStop!=null){stopReason=statusStop;break;}
      long begin=System.nanoTime();
@@ -241,6 +303,7 @@ public final class RootSyncService extends Service {
    if(e instanceof AmbilightAirSource.Unavailable)failureKey="air_unavailable";
    else if("air_setup".equals(stage))failureKey="finish_air_setup";
    else if("area_configuration".equals(stage))failureKey="area";
+   else if("tv_pair".equals(stage))failureKey="tv_pair_required";
    else if("native_sync".equals(stage))failureKey="native_off";
    else if("tv_ambilight".equals(stage))failureKey="ambilight_on";
    else failureKey="sync_failed";
@@ -262,8 +325,8 @@ public final class RootSyncService extends Service {
    usingAir=false;
    Diagnostics.event(diagnosticId,"direct.session.ended","reason="+stopReason+" state="+state+" recovery_pending="+RootRecovery.pending(this));
    android.util.Log.i("DirectSyncTest","final_state="+state+" recovery_pending="+RootRecovery.pending(this));
-   new android.os.Handler(getMainLooper()).post(()->{worker=null;stopSelf();});
   }
+  return stopReason;
  }
- @Override public void onDestroy(){stopRequested.set(true);super.onDestroy();}
+ @Override public void onDestroy(){stopRequested.set(true);if(worker!=null)worker.interrupt();super.onDestroy();}
 }

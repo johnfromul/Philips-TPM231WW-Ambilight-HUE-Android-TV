@@ -1,6 +1,6 @@
 package local.tv.hue;
 
-import android.app.Activity;
+import android.content.Context;
 import android.content.SharedPreferences;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -10,8 +10,8 @@ import java.util.Map;
 
 /** Recover a durable root session after the original engine/process has gone away. */
 final class RootRecovery {
- private final Activity activity;
- RootRecovery(Activity activity){this.activity=activity;}
+ private final Context activity;
+ RootRecovery(Context activity){this.activity=activity;}
  static boolean pending(android.content.Context activity){return RootSyncPreferences.hasRecovery(activity)||new EntertainmentJournal(activity).pending();}
  void run()throws Exception {
   RootSessionGate.claim(this);

@@ -3,7 +3,7 @@ import android.content.*;import java.io.IOException;import org.json.*;
 final class SettingsReset {
  static void run(Context c)throws Exception{
   String state=RootSyncService.state();
-  if(RootSessionGate.busy()||RootRecovery.pending(c)||"starting".equals(state)||"running".equals(state)||"recovery".equals(state))throw new IOException("Stop direct synchronization and complete recovery before reset");
+  if(RootSessionGate.busy()||RootRecovery.pending(c)||RootSyncService.sessionActive()||"recovery".equals(state))throw new IOException("Stop direct synchronization and complete recovery before reset");
   android.content.SharedPreferences recovery=c.getSharedPreferences("native_setup_recovery",0);
   try(NativeLink link=new NativeLink(c)){
    if(recovery.contains("snapshot"))throw new IOException("Recover pending setup before reset");
@@ -19,5 +19,5 @@ final class SettingsReset {
    clearPrivate(c);
   }
  }
- private static void clearPrivate(Context c)throws Exception{for(String name:new String[]{"app_language","air_setup_state","hue_bridge","bridge_profiles","direct_bridge","direct_tuning","root_sync_private","root_entertainment_recovery","light_drafts","tv_pair_flow","tv_pair_pending","bridge_tls",TvApiClient.PREFS,"native_setup_recovery"})if(!c.getSharedPreferences(name,0).edit().clear().commit())throw new IOException("Private settings reset incomplete");}
+ private static void clearPrivate(Context c)throws Exception{for(String name:new String[]{"app_language","air_setup_state","hue_bridge","bridge_profiles","direct_bridge",RootSyncService.RESUME_PREFS,"direct_tuning","root_sync_private","root_entertainment_recovery","light_drafts","tv_pair_flow","tv_pair_pending","bridge_tls",TvApiClient.PREFS,"native_setup_recovery"})if(!c.getSharedPreferences(name,0).edit().clear().commit())throw new IOException("Private settings reset incomplete");}
 }
