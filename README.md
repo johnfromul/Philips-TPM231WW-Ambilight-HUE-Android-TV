@@ -21,6 +21,8 @@ The 1.14z preview adds local Ambilight Air pairing without a proxy, QR-based TV 
 >
 > With the app's Accessibility helper enabled, the Philips channel list can scroll by itself during live DVB-S2 viewing on the tested OLED909. The 1.14y test build can enable Air for Direct Sync with the helper off. The public 1.14z preview also pairs with the TV using a QR code without Accessibility. The channel list behaved normally with the helper off. If you enable the optional remote-control assistance in the Philips Air wizard, turn it off after setup.
 
+[Download the updated 1.14z preview](https://github.com/johnfromul/Philips-TPM231WW-Ambilight-HUE-Android-TV/releases/tag/v1.14z-air-status). Direct Sync infers that Ambilight Air is enabled when the running session uses Air, the TV sends fresh colour frames, and the Hue Bridge reports our Entertainment session as active. The indicator shows an unknown switch state when any of those signals is unavailable.
+
 ## What it does
 
 - Turns synchronization on and off from a TV remote friendly launcher.
